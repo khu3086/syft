@@ -7,9 +7,9 @@
 /* Figma "Combine Profile and Intent Module" theme (warm cream / terracotta). */
 :root {
   --font-size: 16px;
-  --background: #eef4fb;
+  --background: #f4ede4;
   --foreground: #1c1916;
-  --card: #ffffff;
+  --card: #fffdfa;
   --card-foreground: #1c1916;
   --popover: #fffcf8;
   --popover-foreground: #1c1916;
@@ -50,14 +50,14 @@
   --serif: 'Lora', Georgia, serif;
   --sans: 'DM Sans', system-ui, sans-serif;
 
-  /* ---- Light blue app background ---- */
-  --grad-sky:   #eaf3fd;   /* palest sky blue */
-  --grad-lilac: #dfedfb;   /* light blue */
-  --grad-rose:  #d5e7f9;   /* soft blue */
-  --grad-peach: #cde3f7;   /* cooler blue */
-  --grad-glow:  #bfdcf3;   /* soft blue glow */
+  /* ---- Sunset / aurora app background ---- */
+  --grad-sky:   #dee2f3;   /* pale periwinkle */
+  --grad-lilac: #e9e0f1;   /* pale lilac */
+  --grad-rose:  #f5e3e9;   /* pale rose */
+  --grad-peach: #fcebd9;   /* pale peach */
+  --grad-glow:  #f9d3a3;   /* soft amber glow */
   --app-gradient:
-    radial-gradient(120% 75% at 50% 116%, rgba(150,198,238,0.42) 0%, rgba(150,198,238,0) 60%),
+    radial-gradient(120% 75% at 50% 116%, rgba(248,196,135,0.45) 0%, rgba(248,196,135,0) 60%),
     linear-gradient(180deg,
       var(--grad-sky) 0%, var(--grad-lilac) 32%, var(--grad-rose) 56%,
       var(--grad-peach) 82%, var(--grad-glow) 100%);

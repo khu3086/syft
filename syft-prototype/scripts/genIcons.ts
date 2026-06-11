@@ -12,8 +12,8 @@ import sharp from "sharp";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-const BG = "#c4673a"; // --accent
-const FG = "#f7f4ef"; // --background (cream)
+const BG = "#86c1ea"; // light blue icon tile
+const FG = "#13223a"; // deep navy glyph (readable on light blue)
 const PUBLIC = join(process.cwd(), "public");
 
 /** One square SVG. glyphScale is the font-size as a fraction of the tile. */
