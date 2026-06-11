@@ -11,7 +11,7 @@ import { OnboardingScreen } from "./components/OnboardingScreen";
 import { DemographicsAssessment } from "./components/DemographicsAssessment";
 import { ProfileIntentModule } from "./components/ProfileIntentModule";
 import { IdentityVerification } from "./components/IdentityVerification";
-import { SearchPlatform } from "./components/SearchPlatform";
+import { MainApp } from "./components/MainApp";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -125,7 +125,7 @@ export default function Home() {
         />
       )}
       {stage === "identity" && <IdentityVerification onComplete={finishOnboarding} />}
-      {stage === "search" && <SearchPlatform />}
+      {stage === "search" && <MainApp />}
     </div>
   );
 }

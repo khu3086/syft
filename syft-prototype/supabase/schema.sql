@@ -67,3 +67,39 @@ as $$
   order by p.embedding <=> query_embedding
   limit match_count;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- Likes + messages (the connection layer). Feeds the outcome-learning loop
+-- (CLAUDE.md §7: like → conversation initiated → sustained). The matching pool
+-- and these rows are read/written server-side with the service-role key; RLS
+-- still restricts any direct client access to a user's own rows.
+-- ---------------------------------------------------------------------------
+
+-- A member likes a pool profile.
+create table if not exists public.likes (
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  profile_id  text not null references public.profiles(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  primary key (user_id, profile_id)
+);
+alter table public.likes enable row level security;
+drop policy if exists "own likes" on public.likes;
+create policy "own likes" on public.likes
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Messages a member sends to a liked profile (one-sided in the prototype — no
+-- simulated replies; sender is kept for the future two-way case).
+create table if not exists public.messages (
+  id          bigint generated always as identity primary key,
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  profile_id  text not null references public.profiles(id) on delete cascade,
+  sender      text not null default 'me',
+  body        text not null,
+  created_at  timestamptz not null default now()
+);
+create index if not exists messages_user_profile_idx
+  on public.messages (user_id, profile_id, created_at);
+alter table public.messages enable row level security;
+drop policy if exists "own messages" on public.messages;
+create policy "own messages" on public.messages
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
