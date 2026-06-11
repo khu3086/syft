@@ -32,7 +32,7 @@ export function ChatsView({ conn, openChatId, setOpenChatId, onGoDiscover }: Cha
 
   // --- Conversation list ---
   return (
-    <main className="max-w-2xl mx-auto px-6 py-10 w-full">
+    <main className="max-w-2xl mx-auto px-6 py-10 w-full h-full overflow-y-auto">
       <div className="mb-6">
         <p className="text-muted-foreground mb-0.5" style={{ fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.1em" }}>
           Messages
@@ -120,7 +120,7 @@ function ChatWindow({ conn, connectionId, onBack }: ChatWindowProps) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto w-full flex flex-col" style={{ height: "calc(100dvh - 64px)" }}>
+    <div className="max-w-2xl mx-auto w-full flex flex-col h-full">
       {/* Conversation header */}
       <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: "var(--border)" }}>
         <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Back to messages">

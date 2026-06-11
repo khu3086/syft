@@ -104,7 +104,7 @@ export function DemographicsAssessment({ onComplete }: DemographicsAssessmentPro
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col" style={{ fontFamily: "var(--font-ui)" }}>
+    <div className="min-h-screen flex flex-col" style={{ fontFamily: "var(--font-ui)" }}>
       <header className="px-8 py-6">
         <div className="flex items-center justify-between mb-6">
           <span style={{ fontFamily: "var(--font-display)", fontStyle: "italic", fontSize: "1.25rem" }} className="text-foreground">

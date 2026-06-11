@@ -116,8 +116,20 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
       if (error) throw error;
       // Redirects away to Google; nothing else to do here.
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Google sign-in isn't available.");
+      // Fallback: Google OAuth isn't enabled on the Supabase project (or another
+      // provider/setup issue). Don't dead-end on a cryptic error — steer the user
+      // to email sign-up, which always works, with a friendly explanation.
+      const msg = e instanceof Error ? e.message : String(e);
+      const providerUnavailable =
+        /provider is not enabled|unsupported provider|validation_failed|not enabled/i.test(msg);
       setBusy(false);
+      if (providerUnavailable) {
+        setNotice("Google sign-in isn't set up yet — continue with your email below.");
+      } else {
+        setError("Google sign-in didn't work just now. Use your email instead.");
+      }
+      // Make sure the user lands on a view that has the email form + feedback.
+      if (view === "preview") setView("signup");
     }
   }
 
@@ -147,7 +159,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
   if (view === "preview") {
     return (
-      <div className="min-h-screen bg-background flex flex-col" style={{ fontFamily: "var(--font-ui)" }}>
+      <div className="min-h-screen flex flex-col" style={{ fontFamily: "var(--font-ui)" }}>
         <header className="flex items-center justify-between px-8 py-6">
           <span style={{ fontFamily: "var(--font-display)", fontStyle: "italic", fontSize: "1.5rem" }} className="text-foreground tracking-tight">
             syft
@@ -234,7 +246,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   if (view === "signup") {
     const canSubmit = name.trim() && email.trim() && (configured ? password.length >= 6 : true);
     return (
-      <div className="min-h-screen bg-background flex flex-col" style={{ fontFamily: "var(--font-ui)" }}>
+      <div className="min-h-screen flex flex-col" style={{ fontFamily: "var(--font-ui)" }}>
         <header className="flex items-center justify-between px-8 py-6">
           <button onClick={() => setView("preview")} className="text-muted-foreground hover:text-foreground transition-colors" style={{ fontSize: "0.875rem" }}>
             ← Back
@@ -336,7 +348,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
   // sign in view
   return (
-    <div className="min-h-screen bg-background flex flex-col" style={{ fontFamily: "var(--font-ui)" }}>
+    <div className="min-h-screen flex flex-col" style={{ fontFamily: "var(--font-ui)" }}>
       <header className="flex items-center justify-between px-8 py-6">
         <button onClick={() => setView("preview")} className="text-muted-foreground hover:text-foreground transition-colors" style={{ fontSize: "0.875rem" }}>
           ← Back

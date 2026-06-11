@@ -57,7 +57,7 @@ export function MainApp() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col" style={{ fontFamily: "var(--font-ui)" }}>
+    <div className="app-main flex flex-col" style={{ fontFamily: "var(--font-ui)" }}>
       <header className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "var(--border)" }}>
         <span style={{ fontFamily: "var(--font-display)", fontStyle: "italic", fontSize: "1.375rem" }} className="text-foreground">
           syft
@@ -71,7 +71,7 @@ export function MainApp() {
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0">
         {view === "discover" ? (
           <SearchPlatform conn={conn} onOpenChat={openChat} />
         ) : (

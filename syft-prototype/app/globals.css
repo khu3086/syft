@@ -7,9 +7,9 @@
 /* Figma "Combine Profile and Intent Module" theme (warm cream / terracotta). */
 :root {
   --font-size: 16px;
-  --background: #f7f4ef;
+  --background: #eef4fb;
   --foreground: #1c1916;
-  --card: #fffcf8;
+  --card: #ffffff;
   --card-foreground: #1c1916;
   --popover: #fffcf8;
   --popover-foreground: #1c1916;
@@ -19,8 +19,8 @@
   --secondary-foreground: #1c1916;
   --muted: #e8e3da;
   --muted-foreground: #7a7166;
-  --accent: #c4673a;
-  --accent-foreground: #fffcf8;
+  --accent: #dd7e33;
+  --accent-foreground: #fffdfa;
   --destructive: #d4183d;
   --destructive-foreground: #ffffff;
   --border: rgba(28, 25, 22, 0.1);
@@ -49,6 +49,26 @@
   --strong-ink: #5e6e50;
   --serif: 'Lora', Georgia, serif;
   --sans: 'DM Sans', system-ui, sans-serif;
+
+  /* ---- Light blue app background ---- */
+  --grad-sky:   #eaf3fd;   /* palest sky blue */
+  --grad-lilac: #dfedfb;   /* light blue */
+  --grad-rose:  #d5e7f9;   /* soft blue */
+  --grad-peach: #cde3f7;   /* cooler blue */
+  --grad-glow:  #bfdcf3;   /* soft blue glow */
+  --app-gradient:
+    radial-gradient(120% 75% at 50% 116%, rgba(150,198,238,0.42) 0%, rgba(150,198,238,0) 60%),
+    linear-gradient(180deg,
+      var(--grad-sky) 0%, var(--grad-lilac) 32%, var(--grad-rose) 56%,
+      var(--grad-peach) 82%, var(--grad-glow) 100%);
+
+  /* ---- White "command" composer (the chat input) ---- */
+  --composer: #fffdfa;
+  --composer-foreground: #1c1916;
+  --composer-placeholder: #9a9186;
+  --composer-icon: #7a7166;
+  --composer-divider: rgba(28,25,22,0.12);
+  --composer-elevate: 0 18px 46px -16px rgba(72,40,16,0.30), 0 3px 12px -4px rgba(72,40,16,0.16);
 }
 
 @theme inline {
@@ -89,8 +109,13 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
     font-family: var(--font-ui);
+    background-color: var(--background);
+    background-image: var(--app-gradient);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    background-size: cover;
   }
   html {
     font-size: var(--font-size);
@@ -127,12 +152,12 @@
 .vc-orb-wrap { position: relative; width: 168px; height: 168px; display: grid; place-items: center; }
 .vc-orb {
   width: 104px; height: 104px; border-radius: 999px;
-  background: radial-gradient(circle at 36% 30%, #e7a37c 0%, var(--accent) 72%);
-  box-shadow: 0 14px 40px rgba(196,103,58,0.30);
+  background: radial-gradient(circle at 36% 30%, #f3b878 0%, var(--accent) 72%);
+  box-shadow: 0 14px 40px rgba(221,126,51,0.30);
   transition: box-shadow 0.4s ease;
 }
 .vc-orb.speaking { animation: vc-breathe 2.6s ease-in-out infinite; }
-.vc-orb.listening { box-shadow: 0 0 0 8px rgba(196,103,58,0.10), 0 0 0 18px rgba(196,103,58,0.06), 0 14px 40px rgba(196,103,58,0.30); }
+.vc-orb.listening { box-shadow: 0 0 0 8px rgba(221,126,51,0.10), 0 0 0 18px rgba(221,126,51,0.06), 0 14px 40px rgba(221,126,51,0.30); }
 .vc-ring { position: absolute; border-radius: 999px; border: 1.5px solid var(--accent); opacity: 0; }
 .vc-ring.on { animation: vc-ripple 2.6s ease-out infinite; }
 .vc-ring.r1 { width: 128px; height: 128px; }
@@ -166,7 +191,7 @@
 .vc-mic {
   width: 72px; height: 72px; border-radius: 999px; display: grid; place-items: center;
   background: var(--accent); color: var(--accent-foreground); border: none; cursor: pointer;
-  box-shadow: 0 10px 28px rgba(196,103,58,0.30); transition: transform 0.15s ease, opacity 0.2s ease;
+  box-shadow: 0 10px 28px rgba(221,126,51,0.30); transition: transform 0.15s ease, opacity 0.2s ease;
 }
 .vc-mic:hover { opacity: 0.94; }
 .vc-mic:active { transform: scale(0.95); }
@@ -187,9 +212,44 @@
   padding: 14px 16px; font-family: var(--font-ui); font-size: 1rem; color: var(--foreground);
   min-height: 92px; resize: vertical; line-height: 1.6;
 }
-.vc-field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(196,103,58,0.12); }
+.vc-field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(221,126,51,0.12); }
 
 .error { margin-top: 16px; border: 1px solid #e6cfc4; background: #fbf1ec; color: #8a3d22; border-radius: 12px; padding: 14px 16px; font-size: 14.5px; }
+
+/* ============================================================
+   Dark "command" composer — the chat input on the sunset
+   gradient (modeled on the reference AI prompt box).
+   ============================================================ */
+.composer {
+  background: var(--composer);
+  border: 1px solid var(--border);
+  border-radius: 1.5rem;
+  box-shadow: var(--composer-elevate);
+  padding: 14px 14px 10px 18px;
+}
+.composer-input {
+  width: 100%; resize: none; outline: none; border: none; background: transparent;
+  color: var(--composer-foreground); font-family: var(--font-ui); font-size: 1rem;
+  line-height: 1.55; max-height: 160px; padding: 2px 0;
+}
+.composer-input::placeholder { color: var(--composer-placeholder); }
+.composer-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.composer-icon {
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px;
+  background: transparent; border: none; cursor: pointer; color: var(--composer-icon);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.composer-icon:hover { color: var(--foreground); background: var(--secondary); }
+.composer-icon:disabled { opacity: 0.4; cursor: default; }
+.composer-divider { width: 1px; height: 18px; background: var(--composer-divider); margin: 0 4px; }
+.composer-send {
+  margin-left: auto; display: grid; place-items: center; width: 38px; height: 38px;
+  border-radius: 999px; background: var(--accent); color: var(--accent-foreground); border: none; cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.composer-send:hover { opacity: 0.9; }
+.composer-send:active { transform: scale(0.94); }
+.composer-send:disabled { opacity: 0.35; cursor: default; }
 
 .stagenav {
   position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
@@ -212,6 +272,11 @@
 
 /* While the dev stage-nav is visible (browser, not installed), reserve a band at
    the bottom so it never overlaps a screen's footer/action area. */
+/* Fixed-height app pane: header + scrollable thread + bottom composer. */
+.app-main { height: 100dvh; }
+
 @media not all and (display-mode: standalone) {
   .app-shell .min-h-screen { min-height: calc(100dvh - 84px); }
+  /* Leave room for the dev stage-nav so the bottom composer clears it. */
+  .app-main { height: calc(100dvh - 84px); }
 }

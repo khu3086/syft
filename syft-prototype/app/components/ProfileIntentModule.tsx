@@ -21,7 +21,7 @@ export function ProfileIntentModule({ onComplete }: ProfileIntentModuleProps) {
   const progress = done ? 100 : Math.min((answers / MAX_ANSWERS) * 100, 92);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col" style={{ fontFamily: "var(--font-ui)" }}>
+    <div className="min-h-screen flex flex-col" style={{ fontFamily: "var(--font-ui)" }}>
       <header className="px-8 py-6">
         <div className="flex items-center justify-between mb-1">
           <span

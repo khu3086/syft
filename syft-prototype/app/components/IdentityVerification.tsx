@@ -26,7 +26,7 @@ export function IdentityVerification({ onComplete }: IdentityVerificationProps) 
 
   if (step === "intro") {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 py-16" style={{ fontFamily: "var(--font-ui)" }}>
+      <div className="min-h-screen flex flex-col items-center justify-center px-6 py-16" style={{ fontFamily: "var(--font-ui)" }}>
         <div className="max-w-md w-full text-center">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-8" style={{ background: "var(--secondary)" }}>
             <Shield size={26} color="var(--accent)" />
@@ -78,7 +78,7 @@ export function IdentityVerification({ onComplete }: IdentityVerificationProps) 
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col" style={{ fontFamily: "var(--font-ui)" }}>
+    <div className="min-h-screen flex flex-col" style={{ fontFamily: "var(--font-ui)" }}>
       <header className="px-8 py-6">
         <div className="flex items-center justify-between mb-6">
           <span style={{ fontFamily: "var(--font-display)", fontStyle: "italic", fontSize: "1.25rem" }} className="text-foreground">syft</span>
@@ -173,7 +173,7 @@ export function IdentityVerification({ onComplete }: IdentityVerificationProps) 
           <div className="w-full text-center">
             <div
               className="w-full rounded-2xl border-2 border-dashed mb-6 flex flex-col items-center justify-center py-16 cursor-pointer transition-all hover:border-foreground"
-              style={{ borderColor: idCaptured ? "var(--accent)" : "var(--border)", background: idCaptured ? "rgba(196,103,58,0.05)" : "var(--card)" }}
+              style={{ borderColor: idCaptured ? "var(--accent)" : "var(--border)", background: idCaptured ? "rgba(221,126,51,0.05)" : "var(--card)" }}
               onClick={() => setIdCaptured(true)}
             >
               {idCaptured ? (
@@ -223,7 +223,7 @@ export function IdentityVerification({ onComplete }: IdentityVerificationProps) 
 
             <div
               className="w-48 h-48 rounded-full border-2 border-dashed flex flex-col items-center justify-center mx-auto mb-8 cursor-pointer transition-all hover:border-foreground"
-              style={{ borderColor: selfieCaptured ? "var(--accent)" : "var(--border)", background: selfieCaptured ? "rgba(196,103,58,0.05)" : "var(--card)" }}
+              style={{ borderColor: selfieCaptured ? "var(--accent)" : "var(--border)", background: selfieCaptured ? "rgba(221,126,51,0.05)" : "var(--card)" }}
               onClick={() => setSelfieCaptured(true)}
             >
               {selfieCaptured ? (

@@ -79,7 +79,7 @@ export default function Home() {
   }
 
   return (
-    <div className="app-shell size-full overflow-auto" style={{ fontFamily: "var(--font-ui)", background: "var(--background)" }}>
+    <div className="app-shell size-full overflow-auto" style={{ fontFamily: "var(--font-ui)", background: "transparent" }}>
       {/* Dev stage nav — visible only during development */}
       <nav className="stagenav" aria-label="Stage navigation (dev)">
         {STAGE_ORDER.map((s) => (

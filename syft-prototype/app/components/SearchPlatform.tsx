@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Search, ArrowRight, MessageCircle, Heart, Star, ChevronDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowUp, ArrowRight, MessageCircle, Heart, Star, ChevronDown, Paperclip, Globe, SlidersHorizontal, Mic } from "lucide-react";
 import type { SearchResult } from "@/lib/matching/types";
 import type { ConnectionsApi } from "./useConnections";
 
@@ -33,15 +33,22 @@ export function SearchPlatform({ conn, onOpenChat }: SearchPlatformProps) {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const counter = useRef(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const busy = turns.some((t) => t.loading);
+
+  // Keep the newest turn in view as the conversation grows (chat-style).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [turns]);
 
   async function handleSearch() {
     const q = query.trim();
     if (!q || busy) return;
     const id = ++counter.current;
-    // Add this query to the top of the thread immediately (newest first).
-    setTurns((prev) => [{ id, query: q, loading: true, result: null, error: null }, ...prev]);
+    // Append to the end of the thread (chronological — newest at the bottom).
+    setTurns((prev) => [...prev, { id, query: q, loading: true, result: null, error: null }]);
     setQuery("");
     try {
       const res = await fetch("/api/search", {
@@ -68,74 +75,89 @@ export function SearchPlatform({ conn, onOpenChat }: SearchPlatformProps) {
   const started = turns.length > 0;
 
   return (
-    <main className="max-w-2xl mx-auto px-6 py-8 w-full">
-      {!started && (
-        <div className="text-center mb-8 mt-4">
-          <h1 className="text-foreground mb-3" style={{ fontFamily: "var(--font-display)", fontSize: "clamp(1.75rem, 4vw, 2.5rem)", fontWeight: 500, lineHeight: 1.25 }}>
-            Who are you looking for?
-          </h1>
-          <p className="text-muted-foreground" style={{ fontSize: "0.9375rem" }}>
-            Describe them in your own words. Not happy with the five? Just refine and ask again — it&apos;s a conversation.
-          </p>
-        </div>
-      )}
-
-      {/* Prompt box — always available so you keep refining in the same window */}
-      <div className="rounded-2xl border overflow-hidden mb-4 transition-all focus-within:ring-2" style={{ background: "var(--card)", borderColor: "var(--border)", boxShadow: "0 2px 8px rgba(28,25,22,0.04)" }}>
-        <textarea
-          ref={inputRef}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={started ? "Refine it — add a detail, change the vibe, ask again…" : "Someone who'd drag me to a weird art show, then argue about it over chai…"}
-          className="w-full resize-none outline-none bg-transparent px-6 pt-5 pb-3 leading-relaxed"
-          style={{ color: "var(--foreground)", fontSize: "1.0625rem", minHeight: started ? "64px" : "100px" }}
-          rows={started ? 2 : 3}
-        />
-        <div className="flex items-center justify-between px-4 pb-4 pt-1">
-          <p className="text-muted-foreground" style={{ fontSize: "0.8125rem" }}>
-            Press Enter to search · Shift+Enter for a new line
-          </p>
-          <button
-            onClick={handleSearch}
-            disabled={!query.trim() || busy}
-            className="flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ background: "var(--foreground)", color: "var(--primary-foreground)", fontSize: "0.875rem", fontWeight: 500 }}
-          >
-            {busy ? "Finding…" : (<><Search size={14} />{started ? "Refine" : "Find matches"}</>)}
-          </button>
-        </div>
+    <div className="flex flex-col h-full min-h-0">
+      {/* Scrolling conversation (oldest → newest, like a chat) */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        {!started ? (
+          <div className="h-full flex flex-col items-center justify-center max-w-2xl mx-auto px-6 text-center">
+            <h1 className="text-foreground mb-3" style={{ fontFamily: "var(--font-display)", fontSize: "clamp(1.75rem, 4vw, 2.5rem)", fontWeight: 500, lineHeight: 1.25 }}>
+              Who are you looking for?
+            </h1>
+            <p className="text-muted-foreground mb-7" style={{ fontSize: "0.9375rem", maxWidth: 460 }}>
+              Describe them in your own words. Not happy with the five? Just refine and ask again — it&apos;s a conversation.
+            </p>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {EXAMPLE_PROMPTS.map((prompt) => (
+                <button
+                  key={prompt}
+                  onClick={() => { setQuery(prompt); inputRef.current?.focus(); }}
+                  className="rounded-full px-4 py-2 border transition-all hover:border-foreground hover:bg-card active:scale-95 text-left"
+                  style={{ borderColor: "var(--border)", color: "var(--muted-foreground)", fontSize: "0.8125rem", background: "var(--card)" }}
+                >
+                  {prompt.length > 44 ? prompt.slice(0, 44) + "…" : prompt}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="max-w-2xl mx-auto px-6 py-6 w-full space-y-8">
+            {turns.map((turn) => (
+              <TurnBlock
+                key={turn.id}
+                turn={turn}
+                conn={conn}
+                onOpenChat={onOpenChat}
+                expandedKey={expandedKey}
+                setExpandedKey={setExpandedKey}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {!started && (
-        <div className="flex flex-wrap gap-2 mb-12">
-          {EXAMPLE_PROMPTS.map((prompt) => (
-            <button
-              key={prompt}
-              onClick={() => { setQuery(prompt); inputRef.current?.focus(); }}
-              className="rounded-full px-4 py-2 border transition-all hover:border-foreground hover:bg-card active:scale-95 text-left"
-              style={{ borderColor: "var(--border)", color: "var(--muted-foreground)", fontSize: "0.8125rem", background: "var(--card)" }}
-            >
-              {prompt.length > 48 ? prompt.slice(0, 48) + "…" : prompt}
-            </button>
-          ))}
+      {/* Bottom composer — a dark "command" box floating on the gradient */}
+      <div className="shrink-0">
+        <div className="max-w-2xl mx-auto px-4 pt-2 pb-4 w-full">
+          <div className="composer">
+            <textarea
+              ref={inputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={started ? "Refine it — add a detail, change the vibe, ask again…" : "Describe who you're looking for…"}
+              className="composer-input"
+              rows={1}
+            />
+            <div className="composer-row">
+              <button type="button" className="composer-icon" aria-label="Attach" disabled>
+                <Paperclip size={17} />
+              </button>
+              <button type="button" className="composer-icon" aria-label="Location" disabled>
+                <Globe size={17} />
+              </button>
+              <span className="composer-divider" />
+              <button type="button" className="composer-icon" aria-label="Refine preferences" disabled>
+                <SlidersHorizontal size={17} />
+              </button>
+              <button type="button" className="composer-icon" aria-label="Voice" disabled>
+                <Mic size={17} />
+              </button>
+              <button
+                onClick={handleSearch}
+                disabled={!query.trim() || busy}
+                className="composer-send"
+                aria-label="Search"
+              >
+                <ArrowUp size={18} />
+              </button>
+            </div>
+          </div>
+          <p className="text-center text-muted-foreground mt-2" style={{ fontSize: "0.75rem" }}>
+            {busy ? "Syft is reading across the pool…" : "Press Enter to search · Shift+Enter for a new line"}
+          </p>
         </div>
-      )}
-
-      {/* The thread of searches — newest first */}
-      <div className="space-y-8">
-        {turns.map((turn) => (
-          <TurnBlock
-            key={turn.id}
-            turn={turn}
-            conn={conn}
-            onOpenChat={onOpenChat}
-            expandedKey={expandedKey}
-            setExpandedKey={setExpandedKey}
-          />
-        ))}
       </div>
-    </main>
+    </div>
   );
 }
 

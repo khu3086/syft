@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Syft — UI Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f7f4ef; --card:#fffcf8; --secondary:#ede8e0; --muted:#e8e3da;
+    --fg:#1c1916; --mutedfg:#7a7166; --accent:#c4673a; --accentfg:#fffcf8;
+    --border:rgba(28,25,22,0.10); --error:#d4183d;
+    --green:#8b9e7a; --blue:#6b8cae; --tan:#b5956a; --mauve:#9b7b8e;
+    --ui:'DM Sans',system-ui,sans-serif; --display:'Lora',Georgia,serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#2a2622;font-family:var(--ui);color:var(--fg)}
+
+  @page{ size:1280px 720px; margin:0; }
+
+  .slide{
+    width:1280px;height:720px;position:relative;overflow:hidden;
+    page-break-after:always;display:flex;align-items:center;
+    background:#efe9e0;
+  }
+  .slide:last-child{page-break-after:auto}
+
+  /* ---- layout: phone left, notes right ---- */
+  .stage{flex:0 0 560px;height:100%;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(120% 90% at 50% 0%, #f3ede4 0%, #e7e0d5 100%);}
+  .notes{flex:1;height:100%;padding:64px 72px;display:flex;flex-direction:column;justify-content:center;background:var(--card);border-left:1px solid var(--border);}
+  .kicker{font-size:14px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);font-weight:600;margin-bottom:14px}
+  .notes h2{font-family:var(--display);font-size:42px;font-weight:600;line-height:1.08;margin-bottom:20px}
+  .notes p.lead{font-size:18px;line-height:1.55;color:var(--mutedfg);margin-bottom:28px;max-width:46ch}
+  .notes ul{list-style:none;display:flex;flex-direction:column;gap:13px}
+  .notes li{position:relative;padding-left:26px;font-size:16px;line-height:1.45;color:var(--fg);max-width:46ch}
+  .notes li::before{content:"";position:absolute;left:0;top:7px;width:9px;height:9px;border-radius:3px;background:var(--accent)}
+  .slidenum{position:absolute;bottom:30px;right:40px;font-size:13px;color:var(--mutedfg);letter-spacing:.05em}
+  .pagetag{position:absolute;top:34px;right:40px;font-family:var(--display);font-style:italic;font-size:18px;color:var(--accent)}
+
+  /* ---- phone frame ---- */
+  .phone{width:392px;height:600px;border-radius:42px;background:#000;padding:11px;
+    box-shadow:0 30px 60px -20px rgba(28,25,22,.45), 0 8px 20px -6px rgba(28,25,22,.25);}
+  .screen{width:100%;height:100%;border-radius:32px;overflow:hidden;background:var(--bg);position:relative;display:flex;flex-direction:column}
+  .notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:108px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:30}
+  .statusbar{height:34px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 24px 4px;font-size:12px;font-weight:600;color:var(--fg);z-index:20}
+  .body{flex:1;overflow:hidden;display:flex;flex-direction:column}
+
+  /* generic ui atoms */
+  .wordmark{font-family:var(--display);color:var(--accent);font-weight:600;font-style:italic}
+  .btn{display:flex;align-items:center;justify-content:center;border-radius:12px;font-family:var(--ui);font-weight:500;font-size:15px}
+  .btn-primary{background:var(--accent);color:var(--accentfg);height:50px}
+  .btn-outline{background:transparent;color:var(--fg);border:1px solid var(--border);height:50px}
+  .chip{background:var(--secondary);border-radius:999px;padding:9px 16px;font-size:13.5px;color:var(--fg);font-weight:500}
+  .chip.sel{background:var(--accent);color:var(--accentfg)}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 2px 6px -2px rgba(28,25,22,.10)}
+  .muted{color:var(--mutedfg)}
+  .serif{font-family:var(--display)}
+  .progress{height:5px;border-radius:999px;background:var(--muted);overflow:hidden}
+  .progress > i{display:block;height:100%;background:var(--accent);border-radius:999px}
+  .avatar{border-radius:999px;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:600;color:var(--accentfg)}
+
+  /* ===== cover ===== */
+  .cover{width:1280px;height:720px;display:flex;flex-direction:column;justify-content:center;padding:0 120px;
+    background:radial-gradient(130% 120% at 12% 8%, #fbf8f3 0%, #f0e9df 55%, #e7ded2 100%);position:relative}
+  .cover .mark{font-family:var(--display);font-style:italic;font-size:34px;color:var(--accent);font-weight:600;margin-bottom:40px}
+  .cover h1{font-family:var(--display);font-size:84px;font-weight:600;line-height:1.02;letter-spacing:-.01em;margin-bottom:26px}
+  .cover h1 em{font-style:italic;color:var(--accent)}
+  .cover .sub{font-size:23px;color:var(--mutedfg);line-height:1.5;max-width:40ch;margin-bottom:48px}
+  .cover .meta{display:flex;gap:14px;flex-wrap:wrap}
+  .cover .meta span{background:var(--card);border:1px solid var(--border);border-radius:999px;padding:10px 20px;font-size:14px;color:var(--fg)}
+  .swatches{position:absolute;right:120px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:14px}
+  .sw{width:64px;height:64px;border-radius:18px;box-shadow:0 6px 14px -6px rgba(0,0,0,.25)}
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<section class="cover">
+  <div class="mark">Syft</div>
+  <h1>Describe your&nbsp;person.<br><em>Meet your match.</em></h1>
+  <div class="sub">UI design deck — the search engine for human connection. Calm, intelligent, intentional. No swiping.</div>
+  <div class="meta">
+    <span>Warm cream · terracotta accent</span>
+    <span>Lora + DM Sans</span>
+    <span>9 screens · mobile-first</span>
+  </div>
+  <div class="swatches">
+    <div class="sw" style="background:#f7f4ef;border:1px solid var(--border)"></div>
+    <div class="sw" style="background:#c4673a"></div>
+    <div class="sw" style="background:#1c1916"></div>
+    <div class="sw" style="background:#ede8e0"></div>
+  </div>
+</section>
+
+<!-- ============ 1 ONBOARDING ============ -->
+<section class="slide">
+  <div class="stage">
+    <div class="phone"><div class="screen"><div class="notch"></div>
+      <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+      <div class="body" style="padding:18px 22px 22px;gap:14px">
+        <div class="wordmark" style="font-size:22px">Syft</div>
+        <div style="margin-top:8px">
+          <div class="serif" style="font-size:30px;font-weight:600;line-height:1.12">Describe your person.<br><span style="color:var(--accent);font-style:italic">Meet your match.</span></div>
+          <div class="muted" style="font-size:14px;margin-top:12px;line-height:1.5">No swiping. Just describe who you're looking for.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px">
+          <div class="card" style="padding:14px;display:flex;gap:12px;align-items:center"><div class="avatar" style="width:34px;height:34px;background:var(--accent);font-size:14px">1</div><div style="font-size:13.5px">A profile that truly understands you</div></div>
+          <div class="card" style="padding:14px;display:flex;gap:12px;align-items:center"><div class="avatar" style="width:34px;height:34px;background:var(--green);font-size:14px">2</div><div style="font-size:13.5px">Describe who you want in plain English</div></div>
+          <div class="card" style="padding:14px;display:flex;gap:12px;align-items:center"><div class="avatar" style="width:34px;height:34px;background:var(--blue);font-size:14px">3</div><div style="font-size:13.5px">Meet a shortlist of people who fit</div></div>
+        </div>
+        <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px">
+          <div class="btn btn-primary">Get started</div>
+          <div class="btn btn-outline">Continue with Google</div>
+          <div class="muted" style="text-align:center;font-size:13px">I already have an account</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+  <div class="notes">
+    <div class="kicker">Stage 1 · Onboarding</div>
+    <h2>Set the anti-swipe tone</h2>
+    <p class="lead">First touch establishes Syft as a thoughtful matchmaker, not a casino. Hero promise, then a 3-step "how it works" so people understand they're investing in a richer profile.</p>
+    <ul>
+      <li>Serif hero with the terracotta brand line</li>
+      <li>Three calm cards preview the journey before signup</li>
+      <li>Full-width primary CTA + quiet Google / sign-in options</li>
+    </ul>
+  </div>
+  <div class="pagetag">Syft</div><div class="slidenum">01 / 09</div>
+</section>
+
+<!-- ============ 2 DEMOGRAPHICS ============ -->
+<section class="slide">
+  <div class="stage">
+    <div class="phone"><div class="screen"><div class="notch"></div>
+      <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+      <div class="body" style="padding:18px 22px 22px;gap:16px">
+        <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
+          <span class="muted" style="font-size:18px">‹</span>
+          <div class="progress" style="flex:1"><i style="width:43%"></i></div>
+          <span class="muted" style="font-size:12px">3 / 7</span>
+        </div>
+        <div style="margin-top:14px">
+          <div class="muted" style="font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:600">About you</div>
+          <div class="serif" style="font-size:27px;font-weight:600;line-height:1.18;margin-top:10px">Who are you open<br>to meeting?</div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px">
+          <span class="chip sel">Women</span>
+          <span class="chip">Men</span>
+          <span class="chip sel">Nonbinary</span>
+          <span class="chip">Everyone</span>
+        </div>
+        <div class="muted" style="font-size:12.5px;margin-top:2px">Select all that feel right.</div>
+        <div style="margin-top:auto;display:flex;align-items:center;justify-content:space-between">
+          <div class="muted" style="font-size:15px">Back</div>
+          <div class="btn btn-primary" style="width:120px">Next</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+  <div class="notes">
+    <div class="kicker">Stage 2 · Assessment</div>
+    <h2>One question per card</h2>
+    <p class="lead">Structured intake that feels light despite its depth — clean, comparable data for matching without a wall of form fields.</p>
+    <ul>
+      <li>Thin terracotta progress bar, one prompt at a time</li>
+      <li>Tappable chips over typing; selected fills accent</li>
+      <li>Sliders for distance &amp; height; quiet Back / accent Next</li>
+      <li>Set: age · location · gender · open-to · intent · distance · height</li>
+    </ul>
+  </div>
+  <div class="pagetag">Syft</div><div class="slidenum">02 / 09</div>
+</section>
+
+<!-- ============ 3 IN YOUR WORDS ============ -->
+<section class="slide">
+  <div class="stage">
+    <div class="phone"><div class="screen"><div class="notch"></div>
+      <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+      <div class="body" style="padding:18px 22px 22px;gap:16px">
+        <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
+          <div class="progress" style="flex:1"><i style="width:68%"></i></div>
+        </div>
+        <div class="muted" style="font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;margin-top:8px">In your words</div>
+        <div class="serif" style="font-size:26px;font-weight:600;line-height:1.18">Tell us about your<br>perfect Sunday.</div>
+        <div class="card" style="padding:16px;min-height:150px;box-shadow:0 0 0 2px rgba(196,103,58,.18), 0 2px 6px -2px rgba(28,25,22,.1)">
+          <div class="serif" style="font-size:15px;line-height:1.6;color:var(--fg)">Slow morning, good coffee, a long walk somewhere green with nowhere to be<span style="color:var(--accent)">|</span></div>
+        </div>
+        <div class="muted" style="font-size:12.5px">Write naturally — there's no right answer.</div>
+        <div class="card" style="padding:14px 16px;display:flex;gap:12px;align-items:flex-start;background:var(--secondary);border:none">
+          <div style="font-size:16px">✦</div>
+          <div style="font-size:13px;line-height:1.5"><b>A reflection:</b> you write with warmth and a calm, unhurried rhythm.</div>
+        </div>
+        <div style="margin-top:auto" class="btn btn-primary">Continue</div>
+      </div>
+    </div></div>
+  </div>
+  <div class="notes">
+    <div class="kicker">Stage 3a · In your words</div>
+    <h2>Writing as signal</h2>
+    <p class="lead">Free-text prompts feed the psycholinguistic read — how someone thinks and expresses themselves. The insight is shown back as a reward, framed as a reflection, never a score.</p>
+    <ul>
+      <li>Soft, borderless text area with a terracotta focus ring</li>
+      <li>Light personality reflection card after submit</li>
+      <li>Transparent: the user knows writing helps Syft understand them</li>
+    </ul>
+  </div>
+  <div class="pagetag">Syft</div><div class="slidenum">03 / 09</div>
+</section>
+
+<!-- ============ 4 VOICE ============ -->
+<section class="slide">
+  <div class="stage">
+    <div class="phone"><div class="screen"><div class="notch"></div>
+      <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+      <div class="body" style="padding:18px 22px 26px;align-items:center;text-align:center">
+        <div style="display:inline-flex;align-items:center;gap:8px;background:var(--secondary);border-radius:999px;padding:7px 14px;margin-top:6px">
+          <span style="width:8px;height:8px;border-radius:999px;background:var(--accent);display:inline-block"></span>
+          <span style="font-size:12.5px;font-weight:600">Let's talk</span>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;width:100%">
+          <div style="width:200px;height:200px;border-radius:999px;background:radial-gradient(circle at 38% 32%, #e08a5c 0%, #c4673a 55%, #a8542e 100%);box-shadow:0 0 0 14px rgba(196,103,58,.10), 0 0 0 30px rgba(196,103,58,.05), 0 20px 50px -12px rgba(196,103,58,.5);display:flex;align-items:center;justify-content:center">
+            <div style="display:flex;gap:5px;align-items:flex-end;height:42px">
+              <span style="width:5px;height:18px;background:#fff;border-radius:3px;opacity:.85"></span>
+              <span style="width:5px;height:36px;background:#fff;border-radius:3px;opacity:.9"></span>
+              <span style="width:5px;height:26px;background:#fff;border-radius:3px;opacity:.85"></span>
+              <span style="width:5px;height:42px;background:#fff;border-radius:3px"></span>
+              <span style="width:5px;height:22px;background:#fff;border-radius:3px;opacity:.85"></span>
+            </div>
+          </div>
+        </div>
+        <div class="muted" style="font-size:13.5px;margin-bottom:10px">Listening…</div>
+        <div class="card" style="padding:14px 16px;width:100%;text-align:left">
+          <div class="muted" style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Live transcript</div>
+          <div class="serif" style="font-size:14px;line-height:1.5">"I think I connect with people who are curious and a little bit playful…"</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:18px;margin-top:18px">
+          <div class="muted" style="font-size:13px;width:56px;text-align:right">Type<br>instead</div>
+          <div class="avatar" style="width:64px;height:64px;background:var(--accent);box-shadow:0 8px 20px -6px rgba(196,103,58,.5)"><span style="font-size:22px">⏸</span></div>
+          <div class="muted" style="font-size:13px;width:56px">Tap to<br>pause</div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+  <div class="notes">
+    <div class="kicker">Stage 3b · Let's talk</div>
+    <h2>A calm voice conversation</h2>
+    <p class="lead">A short talk with Syft's assistant captures tone, warmth and nuance checkboxes miss. Meditative and trustworthy, never flashy.</p>
+    <ul>
+      <li>Breathing terracotta orb; EQ bars while you speak</li>
+      <li>Live transcript visible for trust &amp; transparency</li>
+      <li>Obvious "talking to Syft's AI" tag; clear tap-to-pause</li>
+      <li>Typed fallback for accessibility</li>
+    </ul>
+  </div>
+  <div class="pagetag">Syft</div><div class="slidenum">04 / 09</div>
+</section>
+
+<!-- ============ 5 IDENTITY ============ -->
+<section class="slide">
+  <div class="stage">
+    <div class="phone"><div class="screen"><div class="notch"></div>
+      <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+      <div class="body" style="padding:18px 22px 22px;gap:16px">
+        <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+          <span class="avatar" style="width:24px;height:24px;background:var(--accent);font-size:12px">✓</span>
+          <span style="width:26px;height:2px;background:var(--accent)"></span>
+          <span class="avatar" style="width:24px;height:24px;background:var(--accent);font-size:12px">2</span>
+          <span style="width:26px;height:2px;background:var(--muted)"></span>
+          <span class="avatar" style="width:24px;height:24px;background:var(--muted);font-size:12px;color:var(--mutedfg)">3</span>
+          <span style="width:26px;height:2px;background:var(--muted)"></span>
+          <span class="avatar" style="width:24px;height:24px;background:var(--muted);font-size:12px;color:var(--mutedfg)">4</span>
+        </div>
+        <div style="margin-top:6px">
+          <div class="serif" style="font-size:25px;font-weight:600;line-height:1.18">Add your ID</div>
+          <div class="muted" style="font-size:13.5px;margin-top:8px;line-height:1.5">A safe community starts with real people. Verified by Stripe Identity.</div>
+        </div>
+        <div style="flex:1;border:2px dashed rgba(196,103,58,.45);border-radius:18px;background:rgba(196,103,58,.05);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px">
+          <div style="font-size:34px">🪪</div>
+          <div style="font-size:14px;font-weight:500">Tap to capture ID</div>
+          <div class="muted" style="font-size:12px">Front of a government photo ID</div>
+        </div>
+        <div class="card" style="padding:12px 14px;display:flex;gap:10px;align-items:center;background:var(--secondary);border:none">
+          <span style="font-size:15px">🔒</span><span style="font-size:12.5px;line-height:1.4">Your data is yours. Used only to verify age &amp; identity.</span>
+        </div>
+        <div class="btn btn-primary">Continue</div>
+      </div>
+    </div></div>
+  </div>
+  <div class="notes">
+    <div class="kicker">Stage 4 · Identity &amp; safety</div>
+    <h2>The trust gate</h2>
+    <p class="lead">A mark of a serious, safe community — not a bureaucratic hurdle. Powered by Stripe Identity, with age verification as a hard legal bright line.</p>
+    <ul>
+      <li>Numbered steps: intro → consent → ID → selfie → done</li>
+      <li>Dashed capture zones; circular selfie guide</li>
+      <li>"Your data is yours" privacy explainer up front</li>
+    </ul>
+  </div>
+  <div class="pagetag">Syft</div><div class="slidenum">05 / 09</div>
+</section>
+
+<!-- ============ 6 SEARCH (HERO) ============ -->
+<section class="slide">
+  <div class="stage">
+    <div class="phone"><div class="screen"><div class="notch"></div>
+      <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+      <div class="body">
+        <div style="padding:14px 20px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+          <span class="wordmark" style="font-size:19px">Syft</span>
+          <div style="display:flex;gap:6px"><span class="chip sel" style="padding:6px 13px;font-size:12px">Discover</span><span class="chip" style="padding:6px 13px;font-size:12px;background:transparent">Messages</span></div>
+        </div>
+        <div style="flex:1;overflow:hidden;padding:14px 18px;display:flex;flex-direction:column;gap:12px">
+          <div style="align-self:flex-end;background:var(--accent);color:var(--accentfg);border-radius:16px 16px 4px 16px;padding:11px 14px;font-size:13.5px;max-width:80%;line-height:1.4">Someone creative and grounded who loves the outdoors</div>
+          <div class="muted" style="font-size:12px">2 strong matches right now — I'd rather show you real fits than fill five slots.</div>
+          <div class="card" style="padding:14px">
+            <div style="display:flex;gap:12px;align-items:center">
+              <div class="avatar" style="width:46px;height:46px;background:var(--green);font-size:17px">MR</div>
+              <div style="flex:1">
+                <div style="font-size:15px;font-weight:600">Maya R. <span class="muted" style="font-weight:400">· 29</span></div>
+                <div class="muted" style="font-size:12px">Oakland · 4 mi</div>
+              </div>
+              <span class="chip sel" style="padding:5px 11px;font-size:11px">Strong match</span>
+            </div>
+            <div class="serif" style="font-size:13px;line-height:1.5;margin-top:10px;color:var(--fg)">Ceramicist who hikes most weekends — shares your grounded, outdoorsy streak.</div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <div class="btn btn-outline" style="flex:1;height:38px;font-size:13px">Like</div>
+              <div class="btn btn-primary" style="flex:1;height:38px;font-size:13px">Message</div>
+            </div>
+          </div>
+          <div class="card" style="padding:14px;opacity:.96">
+            <div style="display:flex;gap:12px;align-items:center">
+              <div class="avatar" style="width:46px;height:46px;background:var(--blue);font-size:17px">TC</div>
+              <div style="flex:1">
+                <div style="font-size:15px;font-weight:600">Theo C. <span class="muted" style="font-weight:400">· 31</span></div>
+                <div class="muted" style="font-size:12px">Berkeley · 7 mi</div>
+              </div>
+              <span class="chip sel" style="padding:5px 11px;font-size:11px">Strong match</span>
+            </div>
+          </div>
+        </div>
+        <div style="padding:12px 16px 16px;border-top:1px solid var(--border)">
+          <div class="card" style="padding:11px 14px;display:flex;align-items:center;gap:10px">
+            <span class="muted serif" style="font-size:13.5px;flex:1">Describe who you're looking for…</span>
+            <div class="avatar" style="width:32px;height:32px;background:var(--accent);font-size:14px">↑</div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+  <div class="notes">
+    <div class="kicker">Stage 5 · Search platform</div>
+    <h2>The hero experience</h2>
+    <p class="lead">You describe who you want; Syft returns up to five rich match cards with a short "why you two fit." A calm conversation — never a swipe deck.</p>
+    <ul>
+      <li>Pinned composer with ghost prompt + example chips</li>
+      <li>Match cards: avatar, name/age/place, quiet "Strong match", reason, Like / Message</li>
+      <li>Confidence-honest: "2 strong matches right now," never padded to five</li>
+      <li>Refuse-and-reframe state for protected-trait queries</li>
+    </ul>
+  </div>
+  <div class="pagetag">Syft</div><div class="slidenum">06 / 09</div>
+</section>
+
+<!-- ============ 7 REFUSE & REFRAME ============ -->
+<section class="slide">
+  <div class="stage">
+    <div class="phone"><div class="screen"><div class="notch"></div>
+      <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+      <div class="body">
+        <div style="padding:14px 20px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+          <span class="wordmark" style="font-size:19px">Syft</span>
+          <div style="display:flex;gap:6px"><span class="chip sel" style="padding:6px 13px;font-size:12px">Discover</span><span class="chip" style="padding:6px 13px;font-size:12px;background:transparent">Messages</span></div>
+        </div>
+        <div style="flex:1;padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+          <div style="align-self:flex-end;background:var(--accent);color:var(--accentfg);border-radius:16px 16px 4px 16px;padding:11px 14px;font-size:13.5px;max-width:82%;line-height:1.4">Only show me people of [a specific background]</div>
+          <div class="card" style="padding:16px;border:1px solid rgba(196,103,58,.3);background:rgba(196,103,58,.06)">
+            <div style="display:flex;gap:10px;align-items:flex-start">
+              <span style="font-size:18px">✦</span>
+              <div>
+                <div class="serif" style="font-size:15.5px;font-weight:600;line-height:1.4">We match on compatibility, not background.</div>
+                <div class="muted" style="font-size:13px;line-height:1.55;margin-top:8px">Syft never ranks people by race, religion, ethnicity or other protected traits. I've kept everything else from your search and ranked on that.</div>
+              </div>
+            </div>
+          </div>
+          <div class="muted" style="font-size:12px">Ranking on: creative · grounded · loves the outdoors</div>
+          <div class="card" style="padding:14px">
+            <div style="display:flex;gap:12px;align-items:center">
+              <div class="avatar" style="width:46px;height:46px;background:var(--mauve);font-size:17px">JL</div>
+              <div style="flex:1">
+                <div style="font-size:15px;font-weight:600">Jordan L. <span class="muted" style="font-weight:400">· 28</span></div>
+                <div class="muted" style="font-size:12px">San Francisco · 3 mi</div>
+              </div>
+              <span class="chip sel" style="padding:5px 11px;font-size:11px">Strong match</span>
+            </div>
+          </div>
+        </div>
+        <div style="padding:12px 16px 16px;border-top:1px solid var(--border)">
+          <div class="card" style="padding:11px 14px;display:flex;align-items:center;gap:10px">
+            <span class="muted serif" style="font-size:13.5px;flex:1">Describe who you're looking for…</span>
+            <div class="avatar" style="width:32px;height:32px;background:var(--accent);font-size:14px">↑</div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+  <div class="notes">
+    <div class="kicker">Critical subsystem · Safety</div>
+    <h2>Refuse &amp; reframe</h2>
+    <p class="lead">When a query tries to filter on a protected characteristic, Syft calmly declines that dimension, explains the stance, and still ranks on everything else. It must never error out or feel broken.</p>
+    <ul>
+      <li>Warm inline note, not a red error</li>
+      <li>Shows exactly which dimensions it <em>is</em> ranking on</li>
+      <li>Results continue uninterrupted below</li>
+    </ul>
+  </div>
+  <div class="pagetag">Syft</div><div class="slidenum">07 / 09</div>
+</section>
+
+<!-- ============ 8 MESSAGES ============ -->
+<section class="slide">
+  <div class="stage">
+    <div class="phone"><div class="screen"><div class="notch"></div>
+      <div class="statusbar"><span>9:41</span><span>● ● ●</span></div>
+      <div class="body">
+        <div style="padding:14px 20px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+          <span class="wordmark" style="font-size:19px">Syft</span>
+          <div style="display:flex;gap:6px"><span class="chip" style="padding:6px 13px;font-size:12px;background:transparent">Discover</span><span class="chip sel" style="padding:6px 13px;font-size:12px">Messages</span></div>
+        </div>
+        <div style="flex:1;overflow:hidden">
+          <div style="padding:16px 20px 8px" class="serif"><span style="font-size:21px;font-weight:600">Messages</span></div>
+          <div style="display:flex;flex-direction:column">
+            <div style="padding:14px 20px;display:flex;gap:13px;align-items:center;border-bottom:1px solid var(--border)">
+              <div class="avatar" style="width:48px;height:48px;background:var(--green);font-size:17px">MR</div>
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;justify-content:space-between"><span style="font-size:15px;font-weight:600">Maya R. <span class="muted" style="font-weight:400">· 29</span></span><span class="muted" style="font-size:11px">2m</span></div>
+                <div class="muted" style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">That trail sounds perfect — when were you thinking?</div>
+              </div>
+              <span style="width:9px;height:9px;border-radius:999px;background:var(--accent)"></span>
+            </div>
+            <div style="padding:14px 20px;display:flex;gap:13px;align-items:center;border-bottom:1px solid var(--border)">
+              <div class="avatar" style="width:48px;height:48px;background:var(--blue);font-size:17px">TC</div>
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;justify-content:space-between"><span style="font-size:15px;font-weight:600">Theo C. <span class="muted" style="font-weight:400">· 31</span></span><span class="muted" style="font-size:11px">1h</span></div>
+                <div class="muted" style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ha, I have strong opinions about coffee too</div>
+              </div>
+            </div>
+            <div style="padding:14px 20px;display:flex;gap:13px;align-items:center;border-bottom:1px solid var(--border)">
+              <div class="avatar" style="width:48px;height:48px;background:var(--mauve);font-size:17px">JL</div>
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;justify-content:space-between"><span style="font-size:15px;font-weight:600">Jordan L. <span class="muted" style="font-weight:400">· 28</span></span><span class="muted" style="font-size:11px">Yesterday</span></div>
+                <div class="muted" style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">You matched on: creative, grounded, outdoors</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </div>
+  <div class="notes">
+    <div class="kicker">Post-match · Messages</div>
+    <h2>Warm, human inbox</h2>
+    <p class="lead">Where surfaced candidates become real conversations. The user is always in control — Syft never auto-messages.</p>
+    <ul>
+      <li>Calm rows: avatar initials, name/age, last-message preview</li>
+      <li>Unread shown as a small terracotta dot, not a loud badge</li>
+      <li>Chat window: accent outgoing bubbles + tappable "why you matched" recap</li>
+      <li>Sustained conversation feeds the outcome-learning loop</li>
+    </ul>
+  </div>
+  <div class="pagetag">Syft</div><div class="slidenum">08 / 09</div>
+</section>
+
+<!-- ============ 9 SYSTEM ============ -->
+<section class="slide" style="background:var(--card)">
+  <div class="notes" style="border:none;flex:1;padding:72px 90px">
+    <div class="kicker">Reference · Design system</div>
+    <h2>The system at a glance</h2>
+    <p class="lead">One warm accent on neutral cream. Lora for voice &amp; titles, DM Sans for everything functional. 12px radius, soft shadows, unhurried motion.</p>
+    <div style="display:flex;gap:40px;margin-top:14px">
+      <div>
+        <div class="muted" style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px">Color</div>
+        <div style="display:flex;flex-direction:column;gap:10px;font-size:13.5px">
+          <div style="display:flex;align-items:center;gap:11px"><span style="width:26px;height:26px;border-radius:7px;background:#f7f4ef;border:1px solid var(--border)"></span>Background · #f7f4ef</div>
+          <div style="display:flex;align-items:center;gap:11px"><span style="width:26px;height:26px;border-radius:7px;background:#fffcf8;border:1px solid var(--border)"></span>Card · #fffcf8</div>
+          <div style="display:flex;align-items:center;gap:11px"><span style="width:26px;height:26px;border-radius:7px;background:#ede8e0"></span>Secondary · #ede8e0</div>
+          <div style="display:flex;align-items:center;gap:11px"><span style="width:26px;height:26px;border-radius:7px;background:#c4673a"></span>Accent · #c4673a</div>
+          <div style="display:flex;align-items:center;gap:11px"><span style="width:26px;height:26px;border-radius:7px;background:#1c1916"></span>Foreground · #1c1916</div>
+          <div style="display:flex;align-items:center;gap:11px"><span style="width:26px;height:26px;border-radius:7px;background:#7a7166"></span>Muted text · #7a7166</div>
+        </div>
+      </div>
+      <div>
+        <div class="muted" style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:14px">Type &amp; shape</div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="serif" style="font-size:30px;font-weight:600">Lora <span style="font-style:italic;color:var(--accent)">display</span></div>
+          <div style="font-size:20px">DM&nbsp;Sans — interface text</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <span style="width:50px;height:34px;border-radius:12px;border:1px solid var(--border);background:#fff"></span>
+            <span class="muted" style="font-size:13px">12px radius · soft 2px shadow</span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <span class="btn btn-primary" style="height:40px;padding:0 18px">Primary</span>
+            <span class="btn btn-outline" style="height:40px;padding:0 18px">Outline</span>
+            <span class="chip">Chip</span>
+          </div>
+          <div class="muted" style="font-size:12.5px;max-width:30ch;line-height:1.5">Avoid: loud reds, fire emojis, swipe decks, infinite feeds, casino patterns.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="pagetag" style="color:var(--accent)">Syft</div><div class="slidenum">09 / 09</div>
+</section>
+
+</body>
+</html>
