@@ -1,0 +1,18 @@
+# Host node_modules is darwin/arm — must be rebuilt in the linux container so the
+# native binaries (onnxruntime-node, sharp) are correct. Never copy it in.
+node_modules
+.next
+.git
+.env
+.env*.local
+*.log
+.DS_Store
+*.tsbuildinfo
+README.md
+DEPLOY.md
+Dockerfile
+.dockerignore
+
+# NOTE: data/embeddings.json is intentionally NOT ignored — it's the precomputed
+# Stage-0 profile embeddings, baked into the image so the server needs no key to
+# rank. (.dockerignore is separate from .gitignore, which does exclude it.)

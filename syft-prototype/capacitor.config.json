@@ -1,0 +1,10 @@
+{
+  "appId": "com.syft.app",
+  "appName": "Syft",
+  "webDir": "public",
+  "server": {
+    "url": "https://REPLACE-WITH-YOUR-DOMAIN.up.railway.app",
+    "androidScheme": "https",
+    "iosScheme": "https"
+  }
+}
