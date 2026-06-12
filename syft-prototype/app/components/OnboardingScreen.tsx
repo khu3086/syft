@@ -43,8 +43,9 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
   const configured = isSupabaseConfigured();
 
-  // Surface an OAuth/callback failure passed back as ?auth_error=… so a failed
-  // Google sign-in doesn't silently dump the user back on the start screen.
+  // Surface a callback failure passed back as ?auth_error=… (e.g. an email
+  // confirmation link that didn't complete) instead of silently dumping the user
+  // back on the start screen.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -53,8 +54,8 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     setView("signin");
     setError(
       err === "missing_code"
-        ? "Google sign-in didn't complete. Try again, or use your email below."
-        : `Google sign-in failed: ${decodeURIComponent(err)}. You can use your email below.`,
+        ? "That sign-in link didn't complete. Try signing in with your email below."
+        : `Sign-in failed: ${decodeURIComponent(err)}. Try your email below.`,
     );
     // Clean the URL so the message doesn't persist on refresh.
     params.delete("auth_error");
@@ -118,39 +119,6 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     }
   }
 
-  async function handleGoogle() {
-    setError(null);
-    setNotice(null);
-    if (!configured) {
-      onComplete();
-      return;
-    }
-    setBusy(true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
-      });
-      if (error) throw error;
-      // Redirects away to Google; nothing else to do here.
-    } catch (e) {
-      // Fallback: Google OAuth isn't enabled on the Supabase project (or another
-      // provider/setup issue). Don't dead-end on a cryptic error — steer the user
-      // to email sign-up, which always works, with a friendly explanation.
-      const msg = e instanceof Error ? e.message : String(e);
-      const providerUnavailable =
-        /provider is not enabled|unsupported provider|validation_failed|not enabled/i.test(msg);
-      setBusy(false);
-      if (providerUnavailable) {
-        setNotice("Google sign-in isn't set up yet — continue with your email below.");
-      } else {
-        setError("Google sign-in didn't work just now. Use your email instead.");
-      }
-      // Make sure the user lands on a view that has the email form + feedback.
-      if (view === "preview") setView("signup");
-    }
-  }
 
   const Feedback = () => (
     <>
@@ -241,15 +209,6 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
               Get started
               <ArrowRight size={16} />
             </button>
-            <button
-              onClick={handleGoogle}
-              disabled={busy}
-              className="w-full flex items-center justify-center gap-3 rounded-xl py-4 border transition-all hover:bg-secondary active:scale-[0.98] disabled:opacity-50"
-              style={{ borderColor: "var(--border)", fontSize: "0.9375rem", color: "var(--foreground)" }}
-            >
-              <GoogleIcon />
-              Continue with Google
-            </button>
           </div>
 
           <p className="text-muted-foreground mt-8 text-center" style={{ fontSize: "0.8125rem" }}>
@@ -332,22 +291,6 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
               {busy ? "Creating…" : "Continue"}
               {!busy && <ArrowRight size={16} />}
             </button>
-
-            <div className="relative flex items-center py-2">
-              <div className="flex-1 border-t" style={{ borderColor: "var(--border)" }} />
-              <span className="mx-4 text-muted-foreground" style={{ fontSize: "0.8125rem" }}>or</span>
-              <div className="flex-1 border-t" style={{ borderColor: "var(--border)" }} />
-            </div>
-
-            <button
-              onClick={handleGoogle}
-              disabled={busy}
-              className="w-full flex items-center justify-center gap-3 rounded-xl py-4 border transition-all hover:bg-secondary active:scale-[0.98] disabled:opacity-50"
-              style={{ borderColor: "var(--border)", fontSize: "0.9375rem", color: "var(--foreground)", background: "var(--card)" }}
-            >
-              <GoogleIcon />
-              Continue with Google
-            </button>
           </div>
 
           <div className="mt-10 space-y-2">
@@ -420,16 +363,6 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           >
             {busy ? "Signing in…" : "Sign in"}
           </button>
-
-          <button
-            onClick={handleGoogle}
-            disabled={busy}
-            className="w-full flex items-center justify-center gap-3 rounded-xl py-4 border transition-all hover:bg-secondary active:scale-[0.98] disabled:opacity-50"
-            style={{ borderColor: "var(--border)", fontSize: "0.9375rem", color: "var(--foreground)", background: "var(--card)" }}
-          >
-            <GoogleIcon />
-            Continue with Google
-          </button>
         </div>
 
         <p className="text-muted-foreground mt-6 text-center" style={{ fontSize: "0.875rem" }}>
@@ -443,13 +376,3 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   );
 }
 
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-      <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
-      <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-    </svg>
-  );
-}
