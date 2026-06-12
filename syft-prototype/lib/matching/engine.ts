@@ -30,15 +30,20 @@ function framing(
   passedStage1: number,
   scoredInStage3: number,
   returned: number,
+  strong: number,
 ): HonestFraming {
+  // Honest about *strength*, not stingy with *options*: we surface up to five
+  // eligible people and tell the truth about how many are strong fits.
   let message: string;
   if (returned === 0) {
     message =
-      "No strong matches near you right now. As more people join, we'll surface them here.";
-  } else if (returned < MAX_RESULTS) {
-    message = `${returned} strong ${returned === 1 ? "match" : "matches"} right now — we'd rather show fewer real ones than pad the list.`;
+      "No eligible matches near you right now. As more people join, we'll surface them here.";
+  } else if (strong === returned) {
+    message = `Your top ${returned} ${returned === 1 ? "match" : "matches"}.`;
+  } else if (strong === 0) {
+    message = `Your ${returned} closest ${returned === 1 ? "match" : "matches"} right now — these are the best fits so far rather than perfect ones.`;
   } else {
-    message = `Your top ${returned} matches.`;
+    message = `Your top ${returned} matches — ${strong} ${strong === 1 ? "is a strong fit" : "are strong fits"}, the rest are close.`;
   }
   return { poolSize, passedStage1, scoredInStage3, returned, message };
 }
@@ -107,16 +112,24 @@ export async function search(
     };
   });
 
+  // Return the best available shortlist (up to MAX_RESULTS) — everyone here has
+  // already passed the legitimate HARD filters (gender/orientation, age,
+  // distance, intent), so these are real, eligible people. We deliberately do NOT
+  // hard-drop on an absolute composite cutoff: a long, specific query naturally
+  // lowers scores, and hiding decent candidates left users with too few options.
+  // Honesty is preserved by the per-card strength label and the summary below,
+  // which reports how many are *strong* — never by padding with ineligible people
+  // (CLAUDE.md §2.1: be honest about strength, not stingy with options).
   const results = scored
-    .filter((r) => r.composite >= COMPOSITE_FLOOR)
     .sort((a, b) => b.composite - a.composite)
     .slice(0, MAX_RESULTS);
+  const strong = results.filter((r) => r.composite >= COMPOSITE_FLOOR).length;
 
   return {
     query: queryText,
     results,
     refusedDimensions: parsed.refusedDimensions,
-    honest: framing(pool.length, survivors.length, topCandidates.length, results.length),
+    honest: framing(pool.length, survivors.length, topCandidates.length, results.length, strong),
     telemetry,
   };
 }
