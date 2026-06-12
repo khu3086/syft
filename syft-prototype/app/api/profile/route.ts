@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { embedAndStoreProfile } from "@/lib/data/profiles";
 import { geocodeCity } from "@/lib/data/geocode";
+import { normalizeGenderList, normalizeSeeking } from "@/lib/matching/gender";
 import { hasAdmin } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -89,6 +90,10 @@ export async function POST(req: Request) {
     id: userId,
     name: body.name?.trim() || userName,
     age: Number.isFinite(age) ? age : 30,
+    // Structured gender/orientation for the reciprocal Stage-1 gate. Derived from
+    // the same onboarding answers that also feed the assessment prose above.
+    gender: normalizeGenderList(d.gender),
+    seeking: normalizeSeeking(d.open_to),
     city,
     lat: coords.lat,
     lng: coords.lng,

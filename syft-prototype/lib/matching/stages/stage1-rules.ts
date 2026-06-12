@@ -31,6 +31,16 @@ export function evaluateRules(
   const si = parsed.structuredIntent;
   const checks: { name: string; pass: boolean }[] = [];
 
+  // Reciprocal gender / orientation — a HARD gate, evaluated separately from the
+  // fractional Rule Fit Score below: each side must be open to the other's
+  // gender. A mismatch is an impossible match no matter how well everything else
+  // scores (this is the bug a fraction alone caused — opposite-preference
+  // profiles leaked through on a high semantic score). Orientation is a
+  // legitimate dating filter, not a §2 protected characteristic.
+  const genderMutual =
+    searcher.seeking.includes(candidate.gender) &&
+    candidate.seeking.includes(searcher.gender);
+
   // Age range (only if the searcher specified one).
   if (si.desiredAgeMin != null) {
     checks.push({ name: "age >= min", pass: candidate.age >= si.desiredAgeMin });
@@ -67,6 +77,13 @@ export function evaluateRules(
   const passed = checks.filter((c) => c.pass).length;
   const score = applicable === 0 ? 1 : passed / applicable;
   const failedFilters = checks.filter((c) => !c.pass).map((c) => c.name);
+  if (!genderMutual) failedFilters.unshift("gender preference");
 
-  return { passed: score >= RULE_FIT_MIN, score, failedFilters };
+  // The gender gate is absolute: fail it and the candidate is out regardless of
+  // the Rule Fit Score.
+  return {
+    passed: genderMutual && score >= RULE_FIT_MIN,
+    score,
+    failedFilters,
+  };
 }

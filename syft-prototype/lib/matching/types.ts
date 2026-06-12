@@ -12,6 +12,16 @@ export type RelationshipIntent =
   | "marriage"
   | "unsure";
 
+/**
+ * Normalized gender identity used for the reciprocal orientation filter.
+ * NOTE: gender/orientation preference is a legitimate dating filter, NOT one of
+ * the §2 protected characteristics (race, religion, ethnicity, disability). It is
+ * a hard, mutual gate in Stage 1 — never a ranking signal. The richer self-ID
+ * labels from onboarding (e.g. "Transgender woman", "Genderqueer") are collapsed
+ * to these three buckets for matching only.
+ */
+export type Gender = "man" | "woman" | "nonbinary";
+
 /** The three raw signals Syft fuses into one profile (CLAUDE.md §1). */
 export interface RawSignals {
   /** Structured assessment, summarized as prose for the narrative step. */
@@ -27,6 +37,10 @@ export interface Profile {
   id: string;
   name: string;
   age: number;
+  /** This person's gender (collapsed to a matching bucket). */
+  gender: Gender;
+  /** Genders this person is open to being matched with (their orientation). */
+  seeking: Gender[];
   city: string;
   /** Approx coordinates for commuting-distance filtering. */
   lat: number;
@@ -54,6 +68,10 @@ export interface EmbeddedProfile extends Profile {
 /** The searcher (Entity A) — used for reciprocal hard filters + distance. */
 export interface Searcher {
   age: number;
+  /** The searcher's own gender — candidates must be seeking it (reciprocal). */
+  gender: Gender;
+  /** Genders the searcher is open to meeting. */
+  seeking: Gender[];
   city: string;
   lat: number;
   lng: number;

@@ -16,6 +16,7 @@ import type {
   RelationshipIntent,
   Searcher,
 } from "@/lib/matching/types";
+import { normalizeGender, normalizeSeeking } from "@/lib/matching/gender";
 import { buildProfileEmbedding } from "@/lib/matching/narrative";
 import { createAdminClient, hasAdmin } from "@/lib/supabase/admin";
 
@@ -24,6 +25,8 @@ interface ProfileRow {
   user_id: string | null;
   name: string;
   age: number;
+  gender: string | null;
+  seeking: string[] | null;
   city: string;
   lat: number;
   lng: number;
@@ -56,6 +59,11 @@ function rowToEmbedded(r: ProfileRow): EmbeddedProfile | null {
     id: r.id,
     name: r.name,
     age: r.age,
+    // Tolerate legacy rows seeded before gender existed: an absent gender →
+    // "nonbinary", absent seeking → open to everyone, so they still surface
+    // rather than silently dropping out of every search.
+    gender: normalizeGender(r.gender),
+    seeking: normalizeSeeking(r.seeking),
     city: r.city,
     lat: r.lat,
     lng: r.lng,
@@ -131,12 +139,14 @@ export async function getSearcherForUser(userId: string): Promise<Searcher | nul
   const sb = createAdminClient();
   const { data, error } = await sb
     .from("profiles")
-    .select("age, city, lat, lng, intent")
+    .select("age, gender, seeking, city, lat, lng, intent")
     .eq("user_id", userId)
     .maybeSingle();
   if (error || !data) return null;
   return {
     age: data.age,
+    gender: normalizeGender(data.gender),
+    seeking: normalizeSeeking(data.seeking),
     city: data.city,
     lat: data.lat,
     lng: data.lng,
@@ -150,6 +160,8 @@ function toRow(profile: Profile, embedded: EmbeddedProfile, userId: string | nul
     user_id: userId,
     name: profile.name,
     age: profile.age,
+    gender: profile.gender,
+    seeking: profile.seeking,
     city: profile.city,
     lat: profile.lat,
     lng: profile.lng,
