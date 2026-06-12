@@ -252,7 +252,8 @@
 .composer-send:disabled { opacity: 0.35; cursor: default; }
 
 .stagenav {
-  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  position: fixed; top: max(10px, env(safe-area-inset-top)); bottom: auto;
+  left: 50%; transform: translateX(-50%);
   z-index: 50; display: flex; align-items: center; gap: 4px;
   background: rgba(28,25,22,0.85); backdrop-filter: blur(8px);
   border-radius: 999px; padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
@@ -270,13 +271,14 @@
   .stagenav { display: none; }
 }
 
-/* While the dev stage-nav is visible (browser, not installed), reserve a band at
-   the bottom so it never overlaps a screen's footer/action area. */
 /* Fixed-height app pane: header + scrollable thread + bottom composer. */
 .app-main { height: 100dvh; }
 
+/* While the dev stage-nav is visible (browser, not installed) it's pinned to the
+   TOP — reserve a band there so it never overlaps a screen's header/actions, and
+   shrink the fixed-height pane to fit the remaining viewport. */
 @media not all and (display-mode: standalone) {
-  .app-shell .min-h-screen { min-height: calc(100dvh - 84px); }
-  /* Leave room for the dev stage-nav so the bottom composer clears it. */
-  .app-main { height: calc(100dvh - 84px); }
+  .app-shell { padding-top: calc(58px + env(safe-area-inset-top)); }
+  .app-shell .min-h-screen { min-height: calc(100dvh - 58px - env(safe-area-inset-top)); }
+  .app-main { height: calc(100dvh - 58px - env(safe-area-inset-top)); }
 }
