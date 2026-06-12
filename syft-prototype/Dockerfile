@@ -26,7 +26,10 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
 # Bake the local embedding model into the image cache (no API key required).
-RUN pnpm warm:model
+# Best-effort: the script retries and never exits non-zero, and `|| true` guards
+# against any other crash — a flaky Hugging Face download must not fail the build
+# (the model then downloads lazily on the first search at runtime).
+RUN pnpm warm:model || true
 # Public Supabase auth keys — inlined into the client bundle at build time.
 # Pass with --build-arg locally, or set them as build variables on Railway/Render.
 # If omitted, the app builds fine and runs in demo mode (no auth) until provided.
