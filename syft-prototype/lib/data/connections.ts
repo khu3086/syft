@@ -4,6 +4,7 @@
 // is joined from the profiles pool, so we never store it twice.
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { generateDemoReply, type ChatTurn } from "@/lib/chat";
 
 export interface RemoteMessage {
   from: "me" | "them";
@@ -91,4 +92,36 @@ export async function addMessage(userId: string, profileId: string, text: string
     .from("messages")
     .insert({ user_id: userId, profile_id: profileId, sender: "me", body: text });
   if (error) throw new Error(`message failed: ${error.message}`);
+}
+
+/**
+ * If the conversation is with a demo profile, generate its in-character reply
+ * from the full thread and store it as a `sender:"them"` message. No-ops for real
+ * users (generateDemoReply returns null). Best-effort: never throw — a failed
+ * reply must not fail the member's own message.
+ */
+export async function replyToConversation(userId: string, profileId: string): Promise<void> {
+  try {
+    const sb = createAdminClient();
+    const { data: msgs } = await sb
+      .from("messages")
+      .select("sender, body, created_at")
+      .eq("user_id", userId)
+      .eq("profile_id", profileId)
+      .order("created_at", { ascending: true });
+
+    const history: ChatTurn[] = (msgs ?? []).map((m) => ({
+      from: m.sender === "them" ? "them" : "me",
+      text: m.body as string,
+    }));
+
+    const reply = await generateDemoReply(profileId, history);
+    if (!reply) return;
+
+    await sb
+      .from("messages")
+      .insert({ user_id: userId, profile_id: profileId, sender: "them", body: reply });
+  } catch (e) {
+    console.warn(`[chat] demo reply skipped for ${profileId}:`, e);
+  }
 }

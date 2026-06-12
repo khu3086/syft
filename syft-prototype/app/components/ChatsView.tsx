@@ -119,7 +119,7 @@ function ChatWindow({ conn, connectionId, onBack }: ChatWindowProps) {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [connection?.messages.length]);
+  }, [connection?.messages.length, conn.isTyping(connection?.id ?? "")]);
 
   if (!connection) {
     onBack();
@@ -127,6 +127,8 @@ function ChatWindow({ conn, connectionId, onBack }: ChatWindowProps) {
   }
 
   const matched = connection.matched;
+  const isDemo = /^p\d+$/.test(connection.id);
+  const typing = conn.isTyping(connection.id);
 
   function send() {
     const t = draft.trim();
@@ -157,11 +159,11 @@ function ChatWindow({ conn, connectionId, onBack }: ChatWindowProps) {
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-5 space-y-3">
         {matched ? (
           <>
-            {/* Honest framing — mutual match, no simulated replies */}
+            {/* Honest framing — demo profiles reply with AI; real people are never faked */}
             <div className="rounded-xl px-4 py-3 mx-auto text-center" style={{ background: "var(--secondary)", maxWidth: 360 }}>
               <p className="text-muted-foreground" style={{ fontSize: "0.8125rem", lineHeight: 1.55 }}>
                 You and <span className="text-foreground" style={{ fontWeight: 500 }}>{connection.name}</span> liked each
-                other. Say hello — your messages are saved here. Syft never fakes a reply.
+                other. {isDemo ? (<>This is a demo profile, so replies are AI-generated in character — a way to try out the conversation.</>) : (<>Say hello — your messages are saved here. Syft never fakes a reply from a real person.</>)}
               </p>
             </div>
 
@@ -186,7 +188,31 @@ function ChatWindow({ conn, connectionId, onBack }: ChatWindowProps) {
               </div>
             ))}
 
-            {connection.messages.length === 0 && (
+            {typing && (
+              <div className="flex justify-start">
+                <div
+                  className="rounded-2xl px-4 py-3 flex items-center gap-1.5"
+                  style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+                  aria-label={`${connection.name} is typing`}
+                >
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      className="rounded-full"
+                      style={{
+                        width: 6,
+                        height: 6,
+                        background: "var(--muted-foreground)",
+                        animation: "pulse 1.2s infinite ease-in-out",
+                        animationDelay: `${i * 0.18}s`,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {connection.messages.length === 0 && !typing && (
               <div className="text-center pt-6">
                 <MessageCircle size={22} style={{ color: "var(--muted-foreground)", margin: "0 auto 8px" }} />
                 <p className="text-muted-foreground" style={{ fontSize: "0.875rem" }}>
@@ -205,7 +231,7 @@ function ChatWindow({ conn, connectionId, onBack }: ChatWindowProps) {
             </p>
             <p className="text-muted-foreground" style={{ fontSize: "0.875rem", lineHeight: 1.6, maxWidth: 320 }}>
               You liked <span className="text-foreground" style={{ fontWeight: 500 }}>{connection.name}</span>. You&apos;ll be
-              able to message them once they like you back — Syft never fakes a reply or a match.
+              able to message them once they like you back — Syft never fakes a real match.
             </p>
             <button
               onClick={() => conn.simulateMatch(connection.id)}

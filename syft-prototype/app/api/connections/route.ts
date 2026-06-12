@@ -9,7 +9,13 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { hasAdmin } from "@/lib/supabase/admin";
-import { listConnections, addLike, removeLike, addMessage } from "@/lib/data/connections";
+import {
+  listConnections,
+  addLike,
+  removeLike,
+  addMessage,
+  replyToConversation,
+} from "@/lib/data/connections";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,7 +63,11 @@ export async function POST(req: Request) {
     if (action === "like") await addLike(userId, profileId);
     else if (action === "unlike") await removeLike(userId, profileId);
     else if (action === "message") {
-      if (typeof text === "string" && text.trim()) await addMessage(userId, profileId, text.trim());
+      if (typeof text === "string" && text.trim()) {
+        await addMessage(userId, profileId, text.trim());
+        // Demo profiles answer in character; no-ops for real users.
+        await replyToConversation(userId, profileId);
+      }
     } else return NextResponse.json({ error: "Unknown action." }, { status: 400 });
 
     return NextResponse.json({ remote: true, connections: await listConnections(userId) });

@@ -47,6 +47,8 @@ export interface ConnectionsApi {
   toggleLike: (p: LikeInput) => void;
   removeConnection: (id: string) => void;
   sendMessage: (id: string, text: string) => void;
+  /** Whether a demo profile is currently composing a reply (typing indicator). */
+  isTyping: (id: string) => boolean;
   /** Demo affordance: simulate this person liking you back (no real user yet). */
   simulateMatch: (id: string) => void;
 }
@@ -55,9 +57,13 @@ const KEY = "syft-connections-v1";
 const MATCHED_KEY = "syft-matched-v1";
 type Mode = "loading" | "remote" | "local";
 
+/** Seed/demo profiles (p1, p2, …) auto-reply; real users (UUID ids) never do. */
+const isDemoId = (id: string) => /^p\d+$/.test(id);
+
 export function useConnections(): ConnectionsApi {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [matchedIds, setMatchedIds] = useState<string[]>([]);
+  const [typingIds, setTypingIds] = useState<string[]>([]);
   const modeRef = useRef<Mode>("loading");
   const hydratedRef = useRef(false);
   const connRef = useRef<Connection[]>([]);
@@ -189,21 +195,64 @@ export function useConnections(): ConnectionsApi {
     [remote],
   );
 
+  const stopTyping = useCallback(
+    (id: string) => setTypingIds((prev) => prev.filter((x) => x !== id)),
+    [],
+  );
+
   const sendMessage = useCallback(
     (id: string, text: string) => {
       const t = text.trim();
       if (!t) return;
       // Gate: never send unless it's a mutual match.
       if (!matchedRef.current.includes(id)) return;
+      const mine = { from: "me" as const, text: t, at: Date.now() };
       setConnections((prev) =>
-        prev.map((c) =>
-          c.id === id ? { ...c, messages: [...c.messages, { from: "me", text: t, at: Date.now() }] } : c,
-        ),
+        prev.map((c) => (c.id === id ? { ...c, messages: [...c.messages, mine] } : c)),
       );
-      if (modeRef.current === "remote") remote("message", id, t);
+
+      // Demo profiles reply in character (server persists it in remote mode; the
+      // stateless endpoint voices it in local mode). Real users never reply.
+      const expectsReply = isDemoId(id);
+      if (expectsReply) setTypingIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+
+      if (modeRef.current === "remote") {
+        // The message action now also generates + stores the demo reply, so the
+        // reconciled connections list already includes it.
+        remote("message", id, t).finally(() => stopTyping(id));
+      } else if (modeRef.current === "local") {
+        if (!expectsReply) return;
+        const history = [
+          ...(connRef.current.find((c) => c.id === id)?.messages ?? []),
+          mine,
+        ].map((m) => ({ from: m.from, text: m.text }));
+        fetch("/api/chat/reply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ profileId: id, history }),
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data?.reply) {
+              setConnections((prev) =>
+                prev.map((c) =>
+                  c.id === id
+                    ? { ...c, messages: [...c.messages, { from: "them", text: data.reply, at: Date.now() }] }
+                    : c,
+                ),
+              );
+            }
+          })
+          .catch(() => {
+            /* leave the user's message; no reply on failure */
+          })
+          .finally(() => stopTyping(id));
+      }
     },
-    [remote],
+    [remote, stopTyping],
   );
+
+  const isTyping = useCallback((id: string) => typingIds.includes(id), [typingIds]);
 
   const simulateMatch = useCallback((id: string) => {
     setMatchedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
@@ -223,6 +272,7 @@ export function useConnections(): ConnectionsApi {
     toggleLike,
     removeConnection,
     sendMessage,
+    isTyping,
     simulateMatch,
   };
 }
