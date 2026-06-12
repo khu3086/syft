@@ -25,6 +25,7 @@ interface ProfileRow {
   user_id: string | null;
   name: string;
   age: number;
+  photo: string | null;
   gender: string | null;
   seeking: string[] | null;
   city: string;
@@ -59,6 +60,7 @@ function rowToEmbedded(r: ProfileRow): EmbeddedProfile | null {
     id: r.id,
     name: r.name,
     age: r.age,
+    photo: r.photo ?? undefined,
     // Tolerate legacy rows seeded before gender existed: an absent gender →
     // "nonbinary", absent seeking → open to everyone, so they still surface
     // rather than silently dropping out of every search.
@@ -172,6 +174,7 @@ function toRow(profile: Profile, embedded: EmbeddedProfile, userId: string | nul
     user_id: userId,
     name: profile.name,
     age: profile.age,
+    photo: profile.photo ?? null,
     gender: profile.gender,
     seeking: profile.seeking,
     city: profile.city,

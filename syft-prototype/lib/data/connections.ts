@@ -16,6 +16,7 @@ export interface RemoteConnection {
   id: string;
   name: string;
   age: number;
+  photo?: string;
   city: string;
   likedAt: number;
   messages: RemoteMessage[];
@@ -36,7 +37,7 @@ export async function listConnections(userId: string): Promise<RemoteConnection[
 
   const { data: profs } = await sb
     .from("profiles")
-    .select("id, name, age, city")
+    .select("id, name, age, photo, city")
     .in("id", ids);
   const profMap = new Map((profs ?? []).map((p) => [p.id as string, p]));
 
@@ -63,6 +64,7 @@ export async function listConnections(userId: string): Promise<RemoteConnection[
       id: l.profile_id as string,
       name: (p?.name as string) ?? "Someone",
       age: (p?.age as number) ?? 0,
+      photo: (p?.photo as string) ?? undefined,
       city: (p?.city as string) ?? "",
       likedAt: new Date(l.created_at as string).getTime(),
       messages: byProfile.get(l.profile_id as string) ?? [],

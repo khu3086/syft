@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowUp, ArrowRight, MessageCircle, Heart, Star, ChevronDown, Paperclip, Globe, SlidersHorizontal, Mic, Clock } from "lucide-react";
 import type { SearchResult } from "@/lib/matching/types";
 import type { ConnectionsApi } from "./useConnections";
+import { Avatar } from "./Avatar";
 
 const EXAMPLE_PROMPTS = [
   "Someone who'd drag me to a weird art show, then argue about it over chai",
@@ -234,14 +235,12 @@ function TurnBlock({
                 const key = `${turn.id}:${m.profileId}`;
                 const liked = conn.isLiked(m.profileId);
                 const matched = conn.canMessage(m.profileId);
-                const likeInput = { id: m.profileId, name: m.name, age: m.age, city: m.city };
+                const likeInput = { id: m.profileId, name: m.name, age: m.age, photo: m.photo, city: m.city };
                 return (
                   <div key={m.profileId} className="rounded-2xl border overflow-hidden transition-all hover:shadow-sm" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
                     <div className="p-5">
                       <div className="flex items-start gap-4">
-                        <div className="w-14 h-14 rounded-full shrink-0 flex items-center justify-center" style={{ background: AVATAR_BG[i % AVATAR_BG.length], color: "var(--foreground)" }}>
-                          <span style={{ fontFamily: "var(--font-display)", fontSize: "1.25rem", fontWeight: 500 }}>{m.name[0]}</span>
-                        </div>
+                        <Avatar name={m.name} photo={m.photo} size={56} bg={AVATAR_BG[i % AVATAR_BG.length]} fontSize={20} />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                             <span className="text-foreground" style={{ fontWeight: 500, fontSize: "1rem" }}>{m.name}, {m.age}</span>

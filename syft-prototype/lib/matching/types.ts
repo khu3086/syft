@@ -37,6 +37,9 @@ export interface Profile {
   id: string;
   name: string;
   age: number;
+  /** Optional profile photo URL. Seed/demo profiles have one; real users until
+   *  the photo-upload feature exists fall back to an initial avatar. */
+  photo?: string;
   /** This person's gender (collapsed to a matching bucket). */
   gender: Gender;
   /** Genders this person is open to being matched with (their orientation). */
@@ -143,6 +146,7 @@ export interface MatchResult {
   profileId: string;
   name: string;
   age: number;
+  photo?: string;
   city: string;
   composite: number; // 0..1
   label: MatchLabel;

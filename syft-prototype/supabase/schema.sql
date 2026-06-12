@@ -9,6 +9,7 @@ create table if not exists public.profiles (
   user_id               uuid references auth.users(id) on delete cascade, -- null for seed/system profiles
   name                  text not null,
   age                   int  not null,
+  photo                 text,                                      -- profile photo URL (seed/demo profiles; null for new users)
   gender                text,                                      -- 'man' | 'woman' | 'nonbinary' (matching bucket)
   seeking               text[] not null default '{}',              -- genders this person is open to meeting
   city                  text not null,
@@ -30,6 +31,7 @@ create table if not exists public.profiles (
 -- fresh table). Re-running this whole file is safe.
 alter table public.profiles add column if not exists gender  text;
 alter table public.profiles add column if not exists seeking text[] not null default '{}';
+alter table public.profiles add column if not exists photo   text;
 
 -- One profile per authenticated user.
 create unique index if not exists profiles_user_id_idx

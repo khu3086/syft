@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Send, Heart, MessageCircle, Lock, Clock } from "lucide-react";
 import type { ConnectionsApi } from "./useConnections";
+import { Avatar } from "./Avatar";
 
 const AVATAR_BG = ["#D4C5B8", "#B8C5CC", "#C5C5B8", "#C5BCB8", "#C5C0B4"];
 const bgFor = (id: string) =>
@@ -72,9 +73,7 @@ export function ChatsView({ conn, openChatId, setOpenChatId, onGoDiscover }: Cha
                 className="w-full flex items-center gap-4 rounded-2xl border p-4 text-left transition-all hover:shadow-sm active:scale-[0.99]"
                 style={{ background: "var(--card)", borderColor: "var(--border)" }}
               >
-                <div className="w-12 h-12 rounded-full shrink-0 flex items-center justify-center" style={{ background: bgFor(c.id), color: "var(--foreground)" }}>
-                  <span style={{ fontFamily: "var(--font-display)", fontSize: "1.125rem", fontWeight: 500 }}>{c.name[0]}</span>
-                </div>
+                <Avatar name={c.name} photo={c.photo} size={48} bg={bgFor(c.id)} fontSize={18} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-foreground" style={{ fontWeight: 500, fontSize: "0.95rem" }}>
@@ -144,9 +143,7 @@ function ChatWindow({ conn, connectionId, onBack }: ChatWindowProps) {
         <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Back to messages">
           <ArrowLeft size={20} />
         </button>
-        <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: bgFor(connection.id), color: "var(--foreground)" }}>
-          <span style={{ fontFamily: "var(--font-display)", fontSize: "1rem", fontWeight: 500 }}>{connection.name[0]}</span>
-        </div>
+        <Avatar name={connection.name} photo={connection.photo} size={36} bg={bgFor(connection.id)} fontSize={16} />
         <div>
           <p className="text-foreground" style={{ fontWeight: 500, fontSize: "0.95rem" }}>
             {connection.name}, {connection.age}

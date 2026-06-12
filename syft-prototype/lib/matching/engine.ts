@@ -103,6 +103,7 @@ export async function search(
       profileId: c.id,
       name: c.name,
       age: c.age,
+      photo: c.photo,
       city: c.city,
       composite: comp,
       label: labelFor(comp),

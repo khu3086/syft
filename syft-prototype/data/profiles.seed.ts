@@ -24,7 +24,14 @@ export const defaultSearcher: Searcher = {
   intent: "long-term",
 };
 
-export const seedProfiles: Profile[] = [
+// Stable demo portraits for the seed pool, by gender. Real users get an initial
+// avatar until photo upload exists; these just make the prototype feel alive.
+function demoPhoto(gender: Profile["gender"], i: number): string {
+  const dir = gender === "man" ? "men" : gender === "woman" ? "women" : i % 2 ? "men" : "women";
+  return `https://randomuser.me/api/portraits/${dir}/${i % 90}.jpg`;
+}
+
+const SEED_RAW: Profile[] = [
   {
     id: "p1",
     name: "Ananya",
@@ -1228,3 +1235,10 @@ export const seedProfiles: Profile[] = [
     },
   },
 ];
+
+// Attach a stable demo portrait to each seed profile (keyed by index so it never
+// shifts). Photos don't affect embeddings — only db:seed needs re-running.
+export const seedProfiles: Profile[] = SEED_RAW.map((p, i) => ({
+  ...p,
+  photo: demoPhoto(p.gender, i + 1),
+}));

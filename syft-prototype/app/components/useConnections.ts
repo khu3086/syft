@@ -24,6 +24,7 @@ export interface Connection {
   id: string;
   name: string;
   age: number;
+  photo?: string;
   city: string;
   likedAt: number;
   /** True once they've liked you back — the gate for messaging. */
@@ -35,6 +36,7 @@ export interface LikeInput {
   id: string;
   name: string;
   age: number;
+  photo?: string;
   city: string;
 }
 
