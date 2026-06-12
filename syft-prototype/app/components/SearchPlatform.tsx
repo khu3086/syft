@@ -86,15 +86,15 @@ export function SearchPlatform({ conn, onOpenChat }: SearchPlatformProps) {
             <p className="text-muted-foreground mb-7" style={{ fontSize: "0.9375rem", maxWidth: 460 }}>
               Describe them in your own words. Not happy with the five? Just refine and ask again — it&apos;s a conversation.
             </p>
-            <div className="flex flex-wrap gap-2 justify-center">
+            <div className="flex flex-wrap gap-2.5 justify-center" style={{ maxWidth: 600 }}>
               {EXAMPLE_PROMPTS.map((prompt) => (
                 <button
                   key={prompt}
                   onClick={() => { setQuery(prompt); inputRef.current?.focus(); }}
-                  className="rounded-full px-4 py-2 border transition-all hover:border-foreground hover:bg-card active:scale-95 text-left"
-                  style={{ borderColor: "var(--border)", color: "var(--muted-foreground)", fontSize: "0.8125rem", background: "var(--card)" }}
+                  className="rounded-2xl px-4 py-2.5 border transition-all hover:border-foreground hover:bg-card active:scale-[0.98] text-left"
+                  style={{ borderColor: "var(--border)", color: "var(--muted-foreground)", fontSize: "0.8125rem", lineHeight: 1.45, background: "var(--card)", maxWidth: 280 }}
                 >
-                  {prompt.length > 44 ? prompt.slice(0, 44) + "…" : prompt}
+                  {prompt}
                 </button>
               ))}
             </div>
