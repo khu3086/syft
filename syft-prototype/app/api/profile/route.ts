@@ -97,7 +97,9 @@ export async function POST(req: Request) {
     `Looking for ${d.relationship_type ?? "a connection"}.`,
     d.open_to?.length ? `Open to meeting ${d.open_to.join(", ")}.` : "",
     d.distance ? `Willing to travel: ${d.distance}.` : "",
-    d.height && d.height !== "Skip" ? `Height: ${d.height}.` : "",
+    d.height && d.height !== "Skip"
+      ? `Height: ${/^\d+$/.test(d.height) ? `${d.height} cm` : d.height}.`
+      : "",
   ]
     .filter(Boolean)
     .join(" ");

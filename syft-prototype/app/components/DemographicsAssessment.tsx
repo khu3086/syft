@@ -1,21 +1,51 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, ArrowLeft } from "lucide-react";
 
 type Answer = string | string[];
+
+/** Human label for a slider value (e.g. age "27", height "175 cm · 5'9\""). */
+function sliderLabel(id: string, v: number): string {
+  if (id === "height") {
+    const totalIn = Math.round(v / 2.54);
+    const ft = Math.floor(totalIn / 12);
+    const inch = totalIn % 12;
+    return `${v} cm · ${ft}'${inch}"`;
+  }
+  return `${v}`;
+}
 
 interface DemographicsAssessmentProps {
   onComplete: (answers: Record<string, Answer>) => void;
 }
 
-const QUESTIONS = [
+interface Question {
+  id: string;
+  question: string;
+  subtitle: string;
+  type: "slider" | "text" | "number" | "chips-single" | "chips-multi";
+  placeholder?: string;
+  options?: string[];
+  min?: number;
+  max?: number;
+  step?: number;
+  default?: number;
+  suffix?: string;
+  optional?: boolean;
+}
+
+const QUESTIONS: Question[] = [
   {
     id: "age",
     question: "How old are you?",
     subtitle: "We use this to ensure accurate matching and legal compliance.",
-    type: "number",
-    placeholder: "Your age",
+    type: "slider",
+    min: 18,
+    max: 80,
+    step: 1,
+    default: 28,
+    suffix: "years",
   },
   {
     id: "location",
@@ -56,8 +86,13 @@ const QUESTIONS = [
     id: "height",
     question: "How tall are you?",
     subtitle: "Optional — but some people care about this.",
-    type: "chips-single",
-    options: ["Under 160 cm", "160–170 cm", "170–180 cm", "180–190 cm", "Over 190 cm", "Skip"],
+    type: "slider",
+    min: 140,
+    max: 210,
+    step: 1,
+    default: 170,
+    suffix: "",
+    optional: true,
   },
 ];
 
@@ -68,6 +103,14 @@ export function DemographicsAssessment({ onComplete }: DemographicsAssessmentPro
   const question = QUESTIONS[currentIndex];
   const progress = ((currentIndex + 1) / QUESTIONS.length) * 100;
   const currentAnswer = answers[question.id];
+
+  // A slider always has a value — commit its default the moment it's shown so the
+  // answer reflects what's on screen (and "Next" is enabled) without a nudge.
+  useEffect(() => {
+    if (question.type === "slider" && answers[question.id] === undefined) {
+      setAnswers((prev) => ({ ...prev, [question.id]: String(question.default ?? question.min ?? 0) }));
+    }
+  }, [question.id, question.type, question.default, question.min, answers]);
 
   function handleChipSingle(option: string) {
     setAnswers((prev) => ({ ...prev, [question.id]: option }));
@@ -85,7 +128,20 @@ export function DemographicsAssessment({ onComplete }: DemographicsAssessmentPro
     setAnswers((prev) => ({ ...prev, [question.id]: value }));
   }
 
+  function setSlider(value: number) {
+    setAnswers((prev) => ({ ...prev, [question.id]: String(value) }));
+  }
+
+  function toggleSkip() {
+    setAnswers((prev) => ({
+      ...prev,
+      [question.id]: prev[question.id] === "Skip" ? String(question.default ?? question.min ?? 0) : "Skip",
+    }));
+  }
+
   function canAdvance() {
+    // Sliders are always valid — they carry a value (or an explicit "Skip").
+    if (question.type === "slider") return true;
     if (!currentAnswer) return false;
     if (Array.isArray(currentAnswer)) return currentAnswer.length > 0;
     return String(currentAnswer).trim().length > 0;
@@ -136,6 +192,58 @@ export function DemographicsAssessment({ onComplete }: DemographicsAssessmentPro
           <p className="text-muted-foreground mb-10" style={{ fontSize: "0.9375rem" }}>
             {question.subtitle}
           </p>
+
+          {question.type === "slider" && (() => {
+            const skipped = currentAnswer === "Skip";
+            const value =
+              !skipped && currentAnswer != null && currentAnswer !== ""
+                ? Number(currentAnswer)
+                : question.default ?? question.min ?? 0;
+            return (
+              <div>
+                <div className="flex items-baseline gap-2 mb-5">
+                  <span
+                    className="text-foreground"
+                    style={{ fontFamily: "var(--font-display)", fontSize: "2.75rem", fontWeight: 500, lineHeight: 1 }}
+                  >
+                    {skipped ? "—" : sliderLabel(question.id, value)}
+                  </span>
+                  {!skipped && question.suffix && (
+                    <span className="text-muted-foreground" style={{ fontSize: "1rem" }}>{question.suffix}</span>
+                  )}
+                </div>
+                <input
+                  type="range"
+                  min={question.min}
+                  max={question.max}
+                  step={question.step}
+                  value={value}
+                  disabled={skipped}
+                  onChange={(e) => setSlider(Number(e.target.value))}
+                  className="w-full"
+                  style={{ accentColor: "var(--accent)", opacity: skipped ? 0.4 : 1, cursor: "pointer" }}
+                />
+                <div className="flex justify-between mt-1.5 text-muted-foreground" style={{ fontSize: "0.75rem" }}>
+                  <span>{sliderLabel(question.id, question.min ?? 0)}</span>
+                  <span>{sliderLabel(question.id, question.max ?? 0)}{question.id === "age" ? "+" : ""}</span>
+                </div>
+                {question.optional && (
+                  <button
+                    onClick={toggleSkip}
+                    className="mt-6 rounded-full px-4 py-2 border transition-all active:scale-95"
+                    style={{
+                      background: skipped ? "var(--foreground)" : "var(--card)",
+                      borderColor: skipped ? "var(--foreground)" : "var(--border)",
+                      color: skipped ? "var(--primary-foreground)" : "var(--muted-foreground)",
+                      fontSize: "0.8125rem",
+                    }}
+                  >
+                    Prefer not to say
+                  </button>
+                )}
+              </div>
+            );
+          })()}
 
           {(question.type === "text" || question.type === "number") && (
             <input

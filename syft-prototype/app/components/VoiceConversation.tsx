@@ -569,9 +569,6 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
               <Mic size={26} />
             </button>
             <span className="vc-hint">Tap to begin</span>
-            <button className="vc-link" onClick={finish}>
-              Skip the conversation
-            </button>
           </>
         )}
 
@@ -584,26 +581,13 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
           </>
         )}
 
-        {speaking && (
+        {speaking && micAvailable && expectsAnswerRef.current && (
           <>
-            {micAvailable && expectsAnswerRef.current && (
-              <>
-                <button className="vc-mic" onClick={answerNow} aria-label="Answer now">
-                  <Mic size={26} />
-                </button>
-                <span className="vc-hint">Speak any time — tap to jump in</span>
-              </>
-            )}
-            <button className="vc-link" onClick={finish}>
-              Skip the conversation
+            <button className="vc-mic" onClick={answerNow} aria-label="Answer now">
+              <Mic size={26} />
             </button>
+            <span className="vc-hint">Speak any time — tap to jump in</span>
           </>
-        )}
-
-        {(phase === "thinking" || phase === "transcribing") && (
-          <button className="vc-link" onClick={finish}>
-            Skip the conversation
-          </button>
         )}
 
         {phase === "awaiting" && (
@@ -634,6 +618,13 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
         {phase === "done" && (
           <button className="vc-pillbtn" onClick={finish}>
             Finish profile <ArrowRight size={16} />
+          </button>
+        )}
+
+        {/* Always available until the conversation is complete. */}
+        {phase !== "done" && (
+          <button className="vc-link" onClick={finish}>
+            Skip the conversation
           </button>
         )}
       </div>
