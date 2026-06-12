@@ -1,15 +1,14 @@
 // A real, AI-driven voice conversation for Stage 3 "Let's talk".
 //
-//   Syft speaks a question  (browser SpeechSynthesis / TTS)
-//   → you answer out loud   (browser SpeechRecognition / STT, live transcript)
+//   Syft speaks a question  (OpenAI TTS, or browser SpeechSynthesis fallback)
+//   → you answer out loud   (recorded, then Whisper STT — or browser SR fallback)
 //   → Syft reads the answer and STEERS the next question (/api/interview → LLM)
 //
-// Calm, voice-first design: a breathing terracotta orb that pulses when Syft
-// speaks and glows when listening, the current question in large serif, and a
-// live transcript card (the trust affordance — you always see what's captured).
-// All free / in-browser: no paid voice service. Graceful fallbacks: if the
-// browser has no SpeechRecognition (e.g. Firefox), you can type; if there's no
-// SpeechSynthesis, the question is shown but not spoken.
+// When OPENAI_API_KEY is configured (GET /api/transcribe → {configured:true}) the
+// answers are recorded with MediaRecorder and transcribed by Whisper (/api/transcribe),
+// and questions are spoken by OpenAI TTS (/api/speak). With no key it transparently
+// falls back to the browser's SpeechRecognition / SpeechSynthesis. Either way there's
+// a typed fallback, and the transcript card stays visible as the trust affordance.
 
 "use client";
 
@@ -76,7 +75,7 @@ interface Turn {
   role: "assistant" | "user";
   text: string;
 }
-type Phase = "intro" | "speaking" | "listening" | "awaiting" | "thinking" | "done";
+type Phase = "intro" | "speaking" | "listening" | "transcribing" | "awaiting" | "thinking" | "done";
 
 interface VoiceConversationProps {
   /** Called when the conversation finishes (or is skipped), with the user's spoken
@@ -92,14 +91,41 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
   const [interim, setInterim] = useState("");
   const [typed, setTyped] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // Whether OpenAI voice (Whisper STT + TTS) is available; resolved on mount.
+  const [openaiVoice, setOpenaiVoice] = useState(false);
 
   const srSupported = useMemo(() => !!getSRCtor(), []);
   const recRef = useRef<SRInstance | null>(null);
   const finalRef = useRef("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null);
+  // OpenAI-voice machinery.
+  const openaiVoiceRef = useRef(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Load the available voices and pick a calm one (voices populate async).
+  // Detect whether the server can do Whisper + TTS (OPENAI_API_KEY set).
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/transcribe")
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        const on = !!d.configured;
+        setOpenaiVoice(on);
+        openaiVoiceRef.current = on;
+      })
+      .catch(() => {
+        /* leave fallback on */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Load the available browser voices and pick a calm one (used only as fallback).
   useEffect(() => {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
     const load = () => {
@@ -115,8 +141,17 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
     onProgress?.(turns.filter((t) => t.role === "user").length);
   }, [turns, onProgress]);
 
-  // Speak a line in the calm voice — slightly slower and softer than default.
-  const say = (text: string, onSpoken: () => void) => {
+  function stopAudio() {
+    try {
+      audioRef.current?.pause();
+    } catch {
+      /* ignore */
+    }
+    audioRef.current = null;
+  }
+
+  // Browser-synthesis fallback — slightly slower and softer than default.
+  function browserSay(text: string, onSpoken: () => void) {
     if (typeof window === "undefined" || !window.speechSynthesis || !text) {
       onSpoken();
       return;
@@ -124,19 +159,57 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     if (voiceRef.current) u.voice = voiceRef.current;
-    u.rate = 0.92; // a touch slower — unhurried
-    u.pitch = 0.96; // slightly softer
+    u.rate = 0.92;
+    u.pitch = 0.96;
     u.onend = () => onSpoken();
     u.onerror = () => onSpoken();
     window.speechSynthesis.speak(u);
-  };
+  }
+
+  // Speak a line: OpenAI TTS when available, else the browser voice.
+  function say(text: string, onSpoken: () => void) {
+    if (!text) {
+      onSpoken();
+      return;
+    }
+    if (!openaiVoiceRef.current) {
+      browserSay(text, onSpoken);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch("/api/speak", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+        if (!res.ok) throw new Error("tts unavailable");
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        stopAudio();
+        const audio = new Audio(url);
+        audioRef.current = audio;
+        const finish = () => {
+          URL.revokeObjectURL(url);
+          if (audioRef.current === audio) audioRef.current = null;
+          onSpoken();
+        };
+        audio.onended = finish;
+        audio.onerror = finish;
+        await audio.play();
+      } catch {
+        // TTS failed (autoplay block, network, etc.) — fall back to browser voice.
+        browserSay(text, onSpoken);
+      }
+    })();
+  }
 
   // Keep the transcript scrolled to the latest line.
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [turns, interim, phase]);
 
-  // Clean up speech + recognition on unmount.
+  // Clean up speech, recognition, recording + playback on unmount.
   useEffect(() => {
     return () => {
       try {
@@ -144,6 +217,13 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
       } catch {
         /* ignore */
       }
+      try {
+        mediaRecorderRef.current?.stop();
+      } catch {
+        /* ignore */
+      }
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      stopAudio();
       if (typeof window !== "undefined") window.speechSynthesis?.cancel();
     };
   }, []);
@@ -178,7 +258,74 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
     }
   }
 
+  // Start capturing the answer — Whisper recording when available, else browser SR.
   function beginListening() {
+    setError(null);
+    if (openaiVoiceRef.current) {
+      void beginRecording();
+      return;
+    }
+    beginBrowserSR();
+  }
+
+  // --- OpenAI / Whisper path: record audio, transcribe on stop ---
+  async function beginRecording() {
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof MediaRecorder === "undefined"
+    ) {
+      beginBrowserSR(); // can't record → try browser SR, else typed fallback
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const mr = new MediaRecorder(stream);
+      mediaRecorderRef.current = mr;
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => {
+        if (e.data && e.data.size) chunksRef.current.push(e.data);
+      };
+      mr.onstop = () => void onRecordingStop(mr.mimeType);
+      setInterim("");
+      setPhase("listening");
+      mr.start();
+    } catch {
+      setPhase("awaiting"); // mic permission denied → typed fallback
+    }
+  }
+
+  async function onRecordingStop(mimeType: string) {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    const blob = new Blob(chunksRef.current, { type: mimeType || "audio/webm" });
+    chunksRef.current = [];
+    if (!blob.size) {
+      setPhase("awaiting");
+      return;
+    }
+    setPhase("transcribing");
+    try {
+      const fd = new FormData();
+      fd.append("audio", blob, "answer.webm");
+      const res = await fetch("/api/transcribe", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Transcription failed.");
+      const text = (data.text || "").trim();
+      if (text) submitAnswer(text);
+      else {
+        setError("I didn't catch that — try again, or type your answer.");
+        setPhase("awaiting");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Transcription failed.");
+      setPhase("awaiting");
+    }
+  }
+
+  // --- Browser SpeechRecognition fallback path ---
+  function beginBrowserSR() {
     const Ctor = getSRCtor();
     if (!Ctor) {
       setPhase("awaiting"); // no STT → typed fallback
@@ -217,6 +364,14 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
   }
 
   function stopListening() {
+    if (openaiVoiceRef.current) {
+      try {
+        mediaRecorderRef.current?.stop();
+      } catch {
+        /* onstop will fire */
+      }
+      return;
+    }
     try {
       recRef.current?.stop();
     } catch {
@@ -246,6 +401,7 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
   const speaking = phase === "speaking";
   const listening = phase === "listening";
   const orbLive = speaking || listening;
+  const micAvailable = openaiVoice || srSupported;
 
   const lastAssistant = [...turns].reverse().find((t) => t.role === "assistant")?.text;
   const questionText =
@@ -258,13 +414,15 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
         ? "Syft is speaking…"
         : listening
           ? "Listening… speak naturally."
-          : phase === "thinking"
-            ? "Syft is thinking…"
-            : phase === "awaiting"
-              ? srSupported
-                ? "Tap the mic to answer, or type below."
-                : "Type your answer below."
-              : "That’s everything Syft needs.";
+          : phase === "transcribing"
+            ? "Transcribing your answer…"
+            : phase === "thinking"
+              ? "Syft is thinking…"
+              : phase === "awaiting"
+                ? micAvailable
+                  ? "Tap the mic to answer, or type below."
+                  : "Type your answer below."
+                : "That’s everything Syft needs.";
 
   return (
     <div className="vc">
@@ -333,7 +491,7 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
           </>
         )}
 
-        {(speaking || phase === "thinking") && (
+        {(speaking || phase === "thinking" || phase === "transcribing") && (
           <button className="vc-link" onClick={finish}>
             Skip the conversation
           </button>
@@ -341,7 +499,7 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
 
         {phase === "awaiting" && (
           <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-            {srSupported && (
+            {micAvailable && (
               <>
                 <button className="vc-mic" onClick={beginListening} aria-label="Answer by voice">
                   <Mic size={26} />

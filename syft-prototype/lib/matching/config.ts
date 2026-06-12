@@ -69,6 +69,22 @@ export const LLM = {
 /** Local open-source embedding model (Transformers.js — no API key, runs in Node). */
 export const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || "Xenova/all-MiniLM-L6-v2";
 
+/** OpenAI voice for the Stage 3 "Let's talk" interview: Whisper transcribes the
+ *  user's spoken answers, and TTS speaks Syft's questions aloud. Entirely optional
+ *  — when OPENAI_API_KEY is unset, the client falls back to the browser's built-in
+ *  SpeechRecognition / SpeechSynthesis so the flow still works with no key.
+ *  This runs only at profile-build (once per user), so it doesn't touch the
+ *  "embed once, rank cheap" search budget (CLAUDE.md §3). */
+export const VOICE = {
+  apiKey: process.env.OPENAI_API_KEY || "",
+  baseURL: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
+  /** Hosted Whisper for speech-to-text. */
+  sttModel: process.env.WHISPER_MODEL || "whisper-1",
+  /** Text-to-speech model + a calm, warm default voice. */
+  ttsModel: process.env.TTS_MODEL || "tts-1",
+  ttsVoice: process.env.TTS_VOICE || "shimmer",
+} as const;
+
 /** How far back "recently active" counts as fully fresh (days). */
 export const RECENCY_FULL_DAYS = 7;
 /** Beyond this many days, recency contributes ~0. */

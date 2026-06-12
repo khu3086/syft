@@ -1,12 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 // Connections + chat store. When the user is signed in (Supabase configured),
 // likes and messages persist in Postgres via /api/connections — cross-device, and
 // feeding the outcome-learning loop (CLAUDE.md §7). When signed out / demo mode,
 // it transparently falls back to a localStorage store on this device. Either way
 // no replies are simulated — your messages save; the other person isn't faked.
+//
+// Messaging is gated on a *mutual match* (CLAUDE.md §6, reciprocal visibility):
+// you can like anyone, but you can only message someone once they've liked you
+// back. Real reciprocation needs a second active user; until that backend exists,
+// the "they liked you back" signal lives in a local overlay (`syft-matched-v1`)
+// flipped only by an explicit, clearly-labelled demo action — never auto-faked.
 
 export interface ChatMessage {
   from: "me" | "them";
@@ -20,6 +26,8 @@ export interface Connection {
   age: number;
   city: string;
   likedAt: number;
+  /** True once they've liked you back — the gate for messaging. */
+  matched: boolean;
   messages: ChatMessage[];
 }
 
@@ -33,25 +41,45 @@ export interface LikeInput {
 export interface ConnectionsApi {
   connections: Connection[];
   isLiked: (id: string) => boolean;
+  /** Whether messaging is unlocked: you like them AND they liked you back. */
+  canMessage: (id: string) => boolean;
   like: (p: LikeInput) => void;
   toggleLike: (p: LikeInput) => void;
   removeConnection: (id: string) => void;
   sendMessage: (id: string, text: string) => void;
+  /** Demo affordance: simulate this person liking you back (no real user yet). */
+  simulateMatch: (id: string) => void;
 }
 
 const KEY = "syft-connections-v1";
+const MATCHED_KEY = "syft-matched-v1";
 type Mode = "loading" | "remote" | "local";
 
 export function useConnections(): ConnectionsApi {
   const [connections, setConnections] = useState<Connection[]>([]);
+  const [matchedIds, setMatchedIds] = useState<string[]>([]);
   const modeRef = useRef<Mode>("loading");
   const hydratedRef = useRef(false);
   const connRef = useRef<Connection[]>([]);
+  const matchedRef = useRef<string[]>([]);
 
-  // Keep a live ref so the stable callbacks below read current state.
+  // Keep live refs so the stable callbacks below read current state.
   useEffect(() => {
     connRef.current = connections;
   }, [connections]);
+  useEffect(() => {
+    matchedRef.current = matchedIds;
+  }, [matchedIds]);
+
+  // Hydrate the matched overlay (always local — it's a per-device demo signal).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(MATCHED_KEY);
+      if (raw) setMatchedIds(JSON.parse(raw));
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   // Decide mode on mount: try the backend, else fall back to localStorage.
   useEffect(() => {
@@ -94,6 +122,15 @@ export function useConnections(): ConnectionsApi {
     }
   }, [connections]);
 
+  // Persist the matched overlay (both modes — it isn't stored server-side yet).
+  useEffect(() => {
+    try {
+      localStorage.setItem(MATCHED_KEY, JSON.stringify(matchedIds));
+    } catch {
+      /* ignore */
+    }
+  }, [matchedIds]);
+
   // Fire a backend mutation and reconcile with the authoritative server list.
   const remote = useCallback(
     async (action: string, profileId: string, text?: string) => {
@@ -114,10 +151,15 @@ export function useConnections(): ConnectionsApi {
 
   const isLiked = useCallback((id: string) => connections.some((c) => c.id === id), [connections]);
 
+  const canMessage = useCallback(
+    (id: string) => matchedIds.includes(id) && connections.some((c) => c.id === id),
+    [matchedIds, connections],
+  );
+
   const like = useCallback(
     (p: LikeInput) => {
       if (connRef.current.some((c) => c.id === p.id)) return;
-      setConnections((prev) => [{ ...p, likedAt: Date.now(), messages: [] }, ...prev]); // optimistic
+      setConnections((prev) => [{ ...p, likedAt: Date.now(), matched: false, messages: [] }, ...prev]); // optimistic
       if (modeRef.current === "remote") remote("like", p.id);
     },
     [remote],
@@ -128,9 +170,10 @@ export function useConnections(): ConnectionsApi {
       const liked = connRef.current.some((c) => c.id === p.id);
       if (liked) {
         setConnections((prev) => prev.filter((c) => c.id !== p.id));
+        setMatchedIds((prev) => prev.filter((m) => m !== p.id));
         if (modeRef.current === "remote") remote("unlike", p.id);
       } else {
-        setConnections((prev) => [{ ...p, likedAt: Date.now(), messages: [] }, ...prev]);
+        setConnections((prev) => [{ ...p, likedAt: Date.now(), matched: false, messages: [] }, ...prev]);
         if (modeRef.current === "remote") remote("like", p.id);
       }
     },
@@ -140,6 +183,7 @@ export function useConnections(): ConnectionsApi {
   const removeConnection = useCallback(
     (id: string) => {
       setConnections((prev) => prev.filter((c) => c.id !== id));
+      setMatchedIds((prev) => prev.filter((m) => m !== id));
       if (modeRef.current === "remote") remote("unlike", id);
     },
     [remote],
@@ -149,6 +193,8 @@ export function useConnections(): ConnectionsApi {
     (id: string, text: string) => {
       const t = text.trim();
       if (!t) return;
+      // Gate: never send unless it's a mutual match.
+      if (!matchedRef.current.includes(id)) return;
       setConnections((prev) =>
         prev.map((c) =>
           c.id === id ? { ...c, messages: [...c.messages, { from: "me", text: t, at: Date.now() }] } : c,
@@ -159,5 +205,24 @@ export function useConnections(): ConnectionsApi {
     [remote],
   );
 
-  return { connections, isLiked, like, toggleLike, removeConnection, sendMessage };
+  const simulateMatch = useCallback((id: string) => {
+    setMatchedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }, []);
+
+  // Decorate connections with the live matched flag from the overlay.
+  const decorated = useMemo<Connection[]>(
+    () => connections.map((c) => ({ ...c, matched: matchedIds.includes(c.id) })),
+    [connections, matchedIds],
+  );
+
+  return {
+    connections: decorated,
+    isLiked,
+    canMessage,
+    like,
+    toggleLike,
+    removeConnection,
+    sendMessage,
+    simulateMatch,
+  };
 }

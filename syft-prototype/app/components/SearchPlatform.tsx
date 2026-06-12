@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, ArrowRight, MessageCircle, Heart, Star, ChevronDown, Paperclip, Globe, SlidersHorizontal, Mic } from "lucide-react";
+import { ArrowUp, ArrowRight, MessageCircle, Heart, Star, ChevronDown, Paperclip, Globe, SlidersHorizontal, Mic, Clock } from "lucide-react";
 import type { SearchResult } from "@/lib/matching/types";
 import type { ConnectionsApi } from "./useConnections";
 
@@ -233,6 +233,7 @@ function TurnBlock({
                 const tagline = m.assessment.matchReasons[0] ?? m.assessment.explanation;
                 const key = `${turn.id}:${m.profileId}`;
                 const liked = conn.isLiked(m.profileId);
+                const matched = conn.canMessage(m.profileId);
                 const likeInput = { id: m.profileId, name: m.name, age: m.age, city: m.city };
                 return (
                   <div key={m.profileId} className="rounded-2xl border overflow-hidden transition-all hover:shadow-sm" style={{ background: "var(--card)", borderColor: "var(--border)" }}>
@@ -288,7 +289,7 @@ function TurnBlock({
                       )}
                     </div>
 
-                    <div className="flex border-t px-5 py-3 gap-3" style={{ borderColor: "var(--border)", background: "var(--secondary)" }}>
+                    <div className="flex items-center border-t px-5 py-3 gap-3" style={{ borderColor: "var(--border)", background: "var(--secondary)" }}>
                       <button
                         onClick={() => conn.toggleLike(likeInput)}
                         className="flex items-center gap-2 rounded-lg px-4 py-2 transition-all hover:bg-card active:scale-95"
@@ -297,15 +298,37 @@ function TurnBlock({
                         <Heart size={15} fill={liked ? "currentColor" : "none"} />
                         {liked ? "Liked" : "Like"}
                       </button>
-                      <button
-                        onClick={() => { conn.like(likeInput); onOpenChat(m.profileId); }}
-                        className="flex items-center gap-2 rounded-lg px-4 py-2 transition-all hover:bg-card active:scale-95 ml-auto"
-                        style={{ color: "var(--foreground)", fontSize: "0.8125rem", fontWeight: 500 }}
-                      >
-                        <MessageCircle size={15} />
-                        Message
-                        <ArrowRight size={13} />
-                      </button>
+
+                      {matched ? (
+                        <button
+                          onClick={() => onOpenChat(m.profileId)}
+                          className="flex items-center gap-2 rounded-lg px-4 py-2 transition-all hover:bg-card active:scale-95 ml-auto"
+                          style={{ color: "var(--foreground)", fontSize: "0.8125rem", fontWeight: 500 }}
+                        >
+                          <MessageCircle size={15} />
+                          Message
+                          <ArrowRight size={13} />
+                        </button>
+                      ) : liked ? (
+                        <div className="ml-auto flex items-center gap-3">
+                          <span className="flex items-center gap-1.5 text-muted-foreground" style={{ fontSize: "0.75rem" }}>
+                            <Clock size={13} />
+                            Waiting for them to like you back
+                          </span>
+                          <button
+                            onClick={() => conn.simulateMatch(m.profileId)}
+                            className="rounded-lg px-2.5 py-1 border border-dashed transition-all hover:bg-card active:scale-95"
+                            style={{ borderColor: "var(--border)", color: "var(--muted-foreground)", fontSize: "0.6875rem" }}
+                            title="Demo only: simulate a mutual match so you can test messaging"
+                          >
+                            Simulate match (demo)
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="ml-auto text-muted-foreground text-right" style={{ fontSize: "0.75rem" }}>
+                          Like first — you can message once they like you back
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
