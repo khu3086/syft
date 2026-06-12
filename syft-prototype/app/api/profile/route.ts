@@ -5,7 +5,7 @@
 // mode or when not signed in, so the prototype flow never breaks.
 
 import { NextResponse } from "next/server";
-import { embedAndStoreProfile } from "@/lib/data/profiles";
+import { embedAndStoreProfile, profileExists } from "@/lib/data/profiles";
 import { geocodeCity } from "@/lib/data/geocode";
 import { normalizeGenderList, normalizeSeeking } from "@/lib/matching/gender";
 import { hasAdmin } from "@/lib/supabase/admin";
@@ -15,6 +15,25 @@ import type { Profile, RelationshipIntent } from "@/lib/matching/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+// GET /api/profile -> { signedIn, exists }
+// Lets the client route a returning user straight to Search if they've already
+// completed onboarding, instead of replaying the intake. Safe in demo mode.
+export async function GET() {
+  if (!isSupabaseConfigured() || !hasAdmin()) {
+    return NextResponse.json({ signedIn: false, exists: false });
+  }
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ signedIn: false, exists: false });
+    return NextResponse.json({ signedIn: true, exists: await profileExists(user.id) });
+  } catch {
+    return NextResponse.json({ signedIn: false, exists: false });
+  }
+}
 
 interface Demographics {
   age?: string;

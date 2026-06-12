@@ -21,28 +21,48 @@ const STAGE_ORDER: Stage[] = ["onboarding", "demographics", "profile-intent", "i
 export default function Home() {
   const [stage, setStage] = useState<Stage>("onboarding");
   const [signedIn, setSignedIn] = useState(false);
+  // While we resolve the session + profile on load, hold rendering so a logged-in
+  // user never flashes the onboarding/intake screens.
+  const [booting, setBooting] = useState(true);
   // Intake collected across the flow, persisted into the pool at the end.
   const [demographics, setDemographics] = useState<Record<string, string | string[]>>({});
   const [voiceHighlights, setVoiceHighlights] = useState("");
 
-  // Track the Supabase session: skip onboarding for returning users, and reset to
-  // onboarding on sign-out. No-ops cleanly until keys are configured.
+  // Resolve the Supabase session on load: a returning user who already finished
+  // onboarding (has a stored profile) jumps straight to Search; one who signed up
+  // but didn't finish continues the intake. Reset to onboarding on sign-out.
+  // No-ops cleanly (demo mode) until keys are configured.
   useEffect(() => {
-    if (!isSupabaseConfigured()) return;
+    if (!isSupabaseConfigured()) {
+      setBooting(false);
+      return;
+    }
     const supabase = createClient();
+    let active = true;
 
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!active) return;
       if (data.session) {
         setSignedIn(true);
-        setStage((s) => (s === "onboarding" ? "demographics" : s));
+        try {
+          const info = await fetch("/api/profile").then((r) => r.json());
+          if (!active) return;
+          setStage(info.exists ? "search" : "demographics");
+        } catch {
+          if (active) setStage("demographics");
+        }
       }
+      if (active) setBooting(false);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       setSignedIn(Boolean(session));
       if (event === "SIGNED_OUT") setStage("onboarding");
     });
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
   function advanceStage() {
@@ -76,6 +96,30 @@ export default function Home() {
     }
     setSignedIn(false);
     setStage("onboarding");
+  }
+
+  // Hold a calm splash until the session/profile check resolves, so a signed-in
+  // user is never shown the onboarding or intake screens by mistake.
+  if (booting) {
+    return (
+      <div
+        className="size-full flex items-center justify-center"
+        style={{ fontFamily: "var(--font-ui)", background: "transparent" }}
+      >
+        <span
+          aria-label="Loading Syft"
+          style={{
+            fontFamily: "var(--font-display)",
+            fontStyle: "italic",
+            fontSize: "1.75rem",
+            color: "var(--muted-foreground)",
+            animation: "pulse 1.4s ease-in-out infinite",
+          }}
+        >
+          Syft
+        </span>
+      </div>
+    );
   }
 
   return (

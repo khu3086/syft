@@ -133,6 +133,18 @@ export async function loadEmbeddedPoolFromDb(): Promise<EmbeddedProfile[] | null
   return (data as ProfileRow[]).map(rowToEmbedded).filter(Boolean) as EmbeddedProfile[];
 }
 
+/** Whether this user already has a stored profile (i.e. finished onboarding). */
+export async function profileExists(userId: string): Promise<boolean> {
+  if (!hasAdmin()) return false;
+  const sb = createAdminClient();
+  const { count, error } = await sb
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+  if (error) return false;
+  return (count ?? 0) > 0;
+}
+
 /** Derive the Searcher (Entity A) from a user's stored profile, or null. */
 export async function getSearcherForUser(userId: string): Promise<Searcher | null> {
   if (!hasAdmin()) return null;
