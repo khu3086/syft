@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -42,6 +42,25 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const [notice, setNotice] = useState<string | null>(null);
 
   const configured = isSupabaseConfigured();
+
+  // Surface an OAuth/callback failure passed back as ?auth_error=… so a failed
+  // Google sign-in doesn't silently dump the user back on the start screen.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get("auth_error");
+    if (!err) return;
+    setView("signin");
+    setError(
+      err === "missing_code"
+        ? "Google sign-in didn't complete. Try again, or use your email below."
+        : `Google sign-in failed: ${decodeURIComponent(err)}. You can use your email below.`,
+    );
+    // Clean the URL so the message doesn't persist on refresh.
+    params.delete("auth_error");
+    const qs = params.toString();
+    window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
+  }, []);
 
   async function handleSignUp() {
     setError(null);
