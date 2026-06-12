@@ -40,14 +40,22 @@ export async function transcribe(audio: Blob): Promise<string> {
   return (res.text ?? "").trim();
 }
 
-/** Synthesize speech for a line of text; returns MP3 bytes. */
+/** The audio container speak() returns, and its HTTP content type. */
+export const TTS_FORMAT = VOICE.ttsFormat;
+export const TTS_CONTENT_TYPE = VOICE.ttsFormat === "wav" ? "audio/wav" : "audio/mpeg";
+
+/** Synthesize speech for one short line of text; returns the audio bytes.
+ *  Input is clipped to the provider's per-request cap (Orpheus ~200 chars) — the
+ *  client chunks longer text into sentences and calls this per chunk. */
 export async function speak(text: string): Promise<Buffer> {
   const openai = getClient();
   const res = await openai.audio.speech.create({
     model: VOICE.ttsModel,
     voice: VOICE.ttsVoice as "shimmer",
-    input: text,
-    speed: 0.95, // a touch unhurried, matching the calm voice design
+    input: text.slice(0, VOICE.maxInputChars),
+    response_format: VOICE.ttsFormat,
+    // `speed` is an OpenAI-only knob; Orpheus rejects unknown params.
+    ...(VOICE.provider === "openai" ? { speed: 0.95 } : {}),
   });
   return Buffer.from(await res.arrayBuffer());
 }

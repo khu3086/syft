@@ -71,6 +71,38 @@ function pickCalmVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | n
   return en[0] ?? voices[0];
 }
 
+// Split a line into sentence-sized chunks under `max` chars. Keeps the neural
+// TTS request small (Orpheus caps near 200 chars) AND lets playback start after
+// just the first chunk instead of waiting for the whole line — the main fix for
+// the "choppy" feel. Hard-splits any single oversized sentence on word breaks.
+function splitForTTS(text: string, max = 180): string[] {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length <= max) return clean ? [clean] : [];
+  const sentences = clean.match(/[^.!?]+[.!?]*\s*/g) ?? [clean];
+  const chunks: string[] = [];
+  let cur = "";
+  const pushHardSplit = (s: string) => {
+    let rest = s.trim();
+    while (rest.length > max) {
+      let cut = rest.lastIndexOf(" ", max);
+      if (cut <= 0) cut = max;
+      chunks.push(rest.slice(0, cut).trim());
+      rest = rest.slice(cut).trim();
+    }
+    return rest;
+  };
+  for (const s of sentences) {
+    if ((cur + s).length <= max) {
+      cur += s;
+    } else {
+      if (cur.trim()) chunks.push(cur.trim());
+      cur = s.length > max ? pushHardSplit(s) : s;
+    }
+  }
+  if (cur.trim()) chunks.push(cur.trim());
+  return chunks;
+}
+
 interface Turn {
   role: "assistant" | "user";
   text: string;
@@ -105,6 +137,12 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Bumped whenever speech is cancelled (new turn, barge-in, unmount) so an
+  // in-flight chunk pipeline knows to stop instead of overlapping.
+  const speakTokenRef = useRef(0);
+  // Whether the line currently being spoken is a question (barge-in answers it)
+  // versus the closing line (nothing to answer).
+  const expectsAnswerRef = useRef(false);
 
   // Detect whether the server can do Whisper + TTS (OPENAI_API_KEY set).
   useEffect(() => {
@@ -142,6 +180,8 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
   }, [turns, onProgress]);
 
   function stopAudio() {
+    // Invalidate any running chunk pipeline and stop the current clip.
+    speakTokenRef.current++;
     try {
       audioRef.current?.pause();
     } catch {
@@ -150,23 +190,99 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
     audioRef.current = null;
   }
 
+  // Fetch one chunk's audio as a ready-to-play element (or null on failure).
+  async function fetchChunkAudio(chunk: string): Promise<HTMLAudioElement | null> {
+    try {
+      const res = await fetch("/api/speak", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: chunk }),
+      });
+      if (!res.ok) return null;
+      const blob = await res.blob();
+      const audio = new Audio(URL.createObjectURL(blob));
+      return audio;
+    } catch {
+      return null;
+    }
+  }
+
+  // Speak `text` via neural TTS, sentence by sentence. The next chunk is fetched
+  // while the current one plays (prefetch pipeline), so audio starts after only
+  // the first short chunk and there's no gap between sentences. Cancellable via
+  // speakTokenRef; on any chunk failure it falls back to the browser voice for
+  // the remainder, so a TTS hiccup never leaves the interview silent.
+  async function ttsSay(text: string, onSpoken: () => void) {
+    const chunks = splitForTTS(text);
+    if (!chunks.length) {
+      onSpoken();
+      return;
+    }
+    const token = ++speakTokenRef.current;
+    let nextFetch = fetchChunkAudio(chunks[0]);
+    for (let i = 0; i < chunks.length; i++) {
+      const audio = await nextFetch;
+      if (speakTokenRef.current !== token) return; // cancelled mid-fetch
+      nextFetch = i + 1 < chunks.length ? fetchChunkAudio(chunks[i + 1]) : Promise.resolve(null);
+      if (!audio) {
+        // TTS failed for this chunk — speak the rest with the browser voice.
+        browserSay(chunks.slice(i).join(" "), onSpoken);
+        return;
+      }
+      audioRef.current = audio;
+      const done = new Promise<void>((resolve) => {
+        audio.onended = () => resolve();
+        audio.onerror = () => resolve();
+      });
+      try {
+        await audio.play();
+      } catch {
+        browserSay(chunks.slice(i).join(" "), onSpoken);
+        return;
+      }
+      await done;
+      try {
+        URL.revokeObjectURL(audio.src);
+      } catch {
+        /* ignore */
+      }
+      if (speakTokenRef.current !== token) return; // cancelled while playing
+    }
+    if (audioRef.current && speakTokenRef.current === token) audioRef.current = null;
+    onSpoken();
+  }
+
   // Browser-synthesis fallback — slightly slower and softer than default.
   function browserSay(text: string, onSpoken: () => void) {
     if (typeof window === "undefined" || !window.speechSynthesis || !text) {
       onSpoken();
       return;
     }
+    const token = ++speakTokenRef.current;
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     if (voiceRef.current) u.voice = voiceRef.current;
-    u.rate = 0.92;
-    u.pitch = 0.96;
-    u.onend = () => onSpoken();
-    u.onerror = () => onSpoken();
+    u.rate = 0.94;
+    u.pitch = 0.98;
+    // Guard against barge-in: if speech was cancelled, don't advance the flow.
+    const finish = () => {
+      if (speakTokenRef.current === token) onSpoken();
+    };
+    u.onend = finish;
+    u.onerror = finish;
     window.speechSynthesis.speak(u);
   }
 
-  // Speak a line: OpenAI TTS when available, else the browser voice.
+  // Barge-in: let the user start answering while Syft is still speaking a
+  // question (ignored during the closing line, which has nothing to answer).
+  function answerNow() {
+    if (!expectsAnswerRef.current) return;
+    stopAudio();
+    if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+    beginListening();
+  }
+
+  // Speak a line: neural TTS (chunked, prefetched) when available, else browser.
   function say(text: string, onSpoken: () => void) {
     if (!text) {
       onSpoken();
@@ -176,32 +292,7 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
       browserSay(text, onSpoken);
       return;
     }
-    (async () => {
-      try {
-        const res = await fetch("/api/speak", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
-        });
-        if (!res.ok) throw new Error("tts unavailable");
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        stopAudio();
-        const audio = new Audio(url);
-        audioRef.current = audio;
-        const finish = () => {
-          URL.revokeObjectURL(url);
-          if (audioRef.current === audio) audioRef.current = null;
-          onSpoken();
-        };
-        audio.onended = finish;
-        audio.onerror = finish;
-        await audio.play();
-      } catch {
-        // TTS failed (autoplay block, network, etc.) — fall back to browser voice.
-        browserSay(text, onSpoken);
-      }
-    })();
+    void ttsSay(text, onSpoken);
   }
 
   // Keep the transcript scrolled to the latest line.
@@ -244,11 +335,13 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
       if (data.done) {
         const line: string = data.closing || "Thank you — that gives me a real sense of you.";
         setTurns([...history, { role: "assistant", text: line }]);
+        expectsAnswerRef.current = false;
         setPhase("speaking");
         say(line, () => setPhase("done"));
       } else {
         const q: string = data.question || "Tell me a little about yourself.";
         setTurns([...history, { role: "assistant", text: q }]);
+        expectsAnswerRef.current = true;
         setPhase("speaking");
         say(q, () => beginListening());
       }
@@ -491,7 +584,23 @@ export default function VoiceConversation({ onDone, onProgress }: VoiceConversat
           </>
         )}
 
-        {(speaking || phase === "thinking" || phase === "transcribing") && (
+        {speaking && (
+          <>
+            {micAvailable && expectsAnswerRef.current && (
+              <>
+                <button className="vc-mic" onClick={answerNow} aria-label="Answer now">
+                  <Mic size={26} />
+                </button>
+                <span className="vc-hint">Speak any time — tap to jump in</span>
+              </>
+            )}
+            <button className="vc-link" onClick={finish}>
+              Skip the conversation
+            </button>
+          </>
+        )}
+
+        {(phase === "thinking" || phase === "transcribing") && (
           <button className="vc-link" onClick={finish}>
             Skip the conversation
           </button>

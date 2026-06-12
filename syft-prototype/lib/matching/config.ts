@@ -69,21 +69,48 @@ export const LLM = {
 /** Local open-source embedding model (Transformers.js — no API key, runs in Node). */
 export const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || "Xenova/all-MiniLM-L6-v2";
 
-/** OpenAI voice for the Stage 3 "Let's talk" interview: Whisper transcribes the
- *  user's spoken answers, and TTS speaks Syft's questions aloud. Entirely optional
- *  — when OPENAI_API_KEY is unset, the client falls back to the browser's built-in
- *  SpeechRecognition / SpeechSynthesis so the flow still works with no key.
- *  This runs only at profile-build (once per user), so it doesn't touch the
- *  "embed once, rank cheap" search budget (CLAUDE.md §3). */
-export const VOICE = {
-  apiKey: process.env.OPENAI_API_KEY || "",
-  baseURL: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
-  /** Hosted Whisper for speech-to-text. */
-  sttModel: process.env.WHISPER_MODEL || "whisper-1",
-  /** Text-to-speech model + a calm, warm default voice. */
-  ttsModel: process.env.TTS_MODEL || "tts-1",
-  ttsVoice: process.env.TTS_VOICE || "shimmer",
-} as const;
+/** Voice for the Stage 3 "Let's talk" interview: a neural voice speaks Syft's
+ *  questions (TTS) and Whisper transcribes the user's spoken answers (STT).
+ *
+ *  Defaults to **Groq** so it works with the SAME free key as the LLM, no extra
+ *  account: Orpheus TTS + Whisper-turbo over Groq's OpenAI-compatible endpoint.
+ *  (Orpheus is gated — the org admin must accept its terms once at
+ *  console.groq.com/playground?model=canopylabs%2Forpheus-v1-english — until
+ *  then /api/speak fails and the client falls back to the browser voice.)
+ *
+ *  Set OPENAI_API_KEY to use OpenAI's higher-end, steerable gpt-4o-mini-tts
+ *  instead. With no key at all, the client falls back to the browser's built-in
+ *  SpeechSynthesis / SpeechRecognition so the flow still works.
+ *
+ *  Runs only at profile-build (once per user) — off the "embed once, rank cheap"
+ *  search budget (CLAUDE.md §3). Override any field via the env vars below. */
+const VOICE_OPENAI_KEY = process.env.OPENAI_API_KEY || "";
+const VOICE_GROQ_KEY = process.env.LLM_API_KEY || process.env.GROQ_API_KEY || "";
+
+export const VOICE = VOICE_OPENAI_KEY
+  ? {
+      provider: "openai" as const,
+      apiKey: VOICE_OPENAI_KEY,
+      baseURL: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
+      sttModel: process.env.WHISPER_MODEL || "whisper-1",
+      ttsModel: process.env.TTS_MODEL || "gpt-4o-mini-tts",
+      ttsVoice: process.env.TTS_VOICE || "shimmer",
+      /** Audio container the client plays back. */
+      ttsFormat: (process.env.TTS_FORMAT || "mp3") as "mp3" | "wav",
+      /** Per-request input cap (gpt-4o-mini-tts handles long input fine). */
+      maxInputChars: 900,
+    }
+  : {
+      provider: "groq" as const,
+      apiKey: VOICE_GROQ_KEY,
+      baseURL: process.env.VOICE_BASE_URL || "https://api.groq.com/openai/v1",
+      sttModel: process.env.WHISPER_MODEL || "whisper-large-v3-turbo",
+      ttsModel: process.env.TTS_MODEL || "canopylabs/orpheus-v1-english",
+      ttsVoice: process.env.TTS_VOICE || "hannah",
+      ttsFormat: (process.env.TTS_FORMAT || "wav") as "mp3" | "wav",
+      /** Orpheus caps input near 200 chars/request — chunk under this. */
+      maxInputChars: 190,
+    };
 
 /** How far back "recently active" counts as fully fresh (days). */
 export const RECENCY_FULL_DAYS = 7;

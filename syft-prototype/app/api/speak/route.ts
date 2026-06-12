@@ -1,8 +1,8 @@
-// POST /api/speak  { text }  ->  audio/mpeg  (Syft's question, spoken via TTS)
+// POST /api/speak  { text }  ->  audio (wav or mp3)  (Syft's question, spoken)
 // Returns 503 when voice isn't configured so the client falls back to browser TTS.
 
 import { NextResponse } from "next/server";
-import { speak, voiceConfigured } from "@/lib/voice";
+import { speak, voiceConfigured, TTS_CONTENT_TYPE } from "@/lib/voice";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,9 +21,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "text required." }, { status: 400 });
   }
   try {
-    const mp3 = await speak(text.trim().slice(0, 800)); // cap length defensively
-    return new NextResponse(new Uint8Array(mp3), {
-      headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" },
+    // The client sends one sentence-sized chunk; speak() clips to the provider cap.
+    const audio = await speak(text.trim());
+    return new NextResponse(new Uint8Array(audio), {
+      headers: { "Content-Type": TTS_CONTENT_TYPE, "Cache-Control": "no-store" },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Speech synthesis failed.";
