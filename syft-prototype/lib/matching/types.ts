@@ -56,6 +56,9 @@ export interface Profile {
   openTo: RelationshipIntent[];
   /** Hard "no" signals stated by the person, in plain language. */
   dealBreakers: string[];
+  /** The person's preferred age range to meet (searcher-side; optional). */
+  prefAgeMin?: number;
+  prefAgeMax?: number;
   rawSignals: RawSignals;
   /** Stage-0 outputs (computed once, never per-search). */
   narrative?: string;
@@ -75,6 +78,10 @@ export interface Searcher {
   gender: Gender;
   /** Genders the searcher is open to meeting. */
   seeking: Gender[];
+  /** Preferred age range from onboarding — used as the age filter when the query
+   *  doesn't state one of its own. */
+  prefAgeMin?: number;
+  prefAgeMax?: number;
   city: string;
   lat: number;
   lng: number;

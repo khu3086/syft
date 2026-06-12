@@ -18,6 +18,8 @@ export const defaultSearcher: Searcher = {
   age: 31,
   gender: "man",
   seeking: ["woman"],
+  prefAgeMin: 25,
+  prefAgeMax: 40,
   city: "Bengaluru, Karnataka",
   lat: 12.9716,
   lng: 77.5946,

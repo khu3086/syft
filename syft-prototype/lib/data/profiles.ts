@@ -153,7 +153,7 @@ export async function getSearcherForUser(userId: string): Promise<Searcher | nul
   const sb = createAdminClient();
   const { data, error } = await sb
     .from("profiles")
-    .select("age, gender, seeking, city, lat, lng, intent")
+    .select("age, gender, seeking, pref_age_min, pref_age_max, city, lat, lng, intent")
     .eq("user_id", userId)
     .maybeSingle();
   if (error || !data) return null;
@@ -161,6 +161,8 @@ export async function getSearcherForUser(userId: string): Promise<Searcher | nul
     age: data.age,
     gender: normalizeGender(data.gender),
     seeking: normalizeSeeking(data.seeking),
+    prefAgeMin: data.pref_age_min ?? undefined,
+    prefAgeMax: data.pref_age_max ?? undefined,
     city: data.city,
     lat: data.lat,
     lng: data.lng,
@@ -175,6 +177,8 @@ function toRow(profile: Profile, embedded: EmbeddedProfile, userId: string | nul
     name: profile.name,
     age: profile.age,
     photo: profile.photo ?? null,
+    pref_age_min: profile.prefAgeMin ?? null,
+    pref_age_max: profile.prefAgeMax ?? null,
     gender: profile.gender,
     seeking: profile.seeking,
     city: profile.city,

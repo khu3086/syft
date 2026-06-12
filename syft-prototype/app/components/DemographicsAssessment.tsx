@@ -24,13 +24,15 @@ interface Question {
   id: string;
   question: string;
   subtitle: string;
-  type: "slider" | "text" | "number" | "chips-single" | "chips-multi";
+  type: "slider" | "range" | "text" | "number" | "chips-single" | "chips-multi";
   placeholder?: string;
   options?: string[];
   min?: number;
   max?: number;
   step?: number;
   default?: number;
+  /** Default [low, high] for a range question. */
+  defaultRange?: [number, number];
   suffix?: string;
   optional?: boolean;
 }
@@ -69,6 +71,16 @@ const QUESTIONS: Question[] = [
     options: ["Men", "Women", "Non-binary people", "Everyone"],
   },
   {
+    id: "age_range",
+    question: "What age range are you interested in?",
+    subtitle: "Drag the ends to set the range. We treat it as a strong preference.",
+    type: "range",
+    min: 18,
+    max: 80,
+    step: 1,
+    defaultRange: [25, 40],
+  },
+  {
     id: "relationship_type",
     question: "What are you looking for?",
     subtitle: "Be honest — this helps us find people who want the same thing.",
@@ -104,13 +116,17 @@ export function DemographicsAssessment({ onComplete }: DemographicsAssessmentPro
   const progress = ((currentIndex + 1) / QUESTIONS.length) * 100;
   const currentAnswer = answers[question.id];
 
-  // A slider always has a value — commit its default the moment it's shown so the
-  // answer reflects what's on screen (and "Next" is enabled) without a nudge.
+  // A slider/range always has a value — commit its default the moment it's shown
+  // so the answer reflects what's on screen (and "Next" is enabled) without a nudge.
   useEffect(() => {
-    if (question.type === "slider" && answers[question.id] === undefined) {
+    if (answers[question.id] !== undefined) return;
+    if (question.type === "slider") {
       setAnswers((prev) => ({ ...prev, [question.id]: String(question.default ?? question.min ?? 0) }));
+    } else if (question.type === "range") {
+      const [lo, hi] = question.defaultRange ?? [question.min ?? 18, question.max ?? 80];
+      setAnswers((prev) => ({ ...prev, [question.id]: `${lo}-${hi}` }));
     }
-  }, [question.id, question.type, question.default, question.min, answers]);
+  }, [question.id, question.type, question.default, question.min, question.defaultRange, answers]);
 
   function handleChipSingle(option: string) {
     setAnswers((prev) => ({ ...prev, [question.id]: option }));
@@ -132,6 +148,19 @@ export function DemographicsAssessment({ onComplete }: DemographicsAssessmentPro
     setAnswers((prev) => ({ ...prev, [question.id]: String(value) }));
   }
 
+  function parseRange(): [number, number] {
+    const [dlo, dhi] = question.defaultRange ?? [question.min ?? 18, question.max ?? 80];
+    if (typeof currentAnswer === "string" && currentAnswer.includes("-")) {
+      const [lo, hi] = currentAnswer.split("-").map(Number);
+      if (Number.isFinite(lo) && Number.isFinite(hi)) return [lo, hi];
+    }
+    return [dlo, dhi];
+  }
+
+  function setRange(lo: number, hi: number) {
+    setAnswers((prev) => ({ ...prev, [question.id]: `${lo}-${hi}` }));
+  }
+
   function toggleSkip() {
     setAnswers((prev) => ({
       ...prev,
@@ -140,8 +169,8 @@ export function DemographicsAssessment({ onComplete }: DemographicsAssessmentPro
   }
 
   function canAdvance() {
-    // Sliders are always valid — they carry a value (or an explicit "Skip").
-    if (question.type === "slider") return true;
+    // Sliders/ranges are always valid — they carry a value (or an explicit "Skip").
+    if (question.type === "slider" || question.type === "range") return true;
     if (!currentAnswer) return false;
     if (Array.isArray(currentAnswer)) return currentAnswer.length > 0;
     return String(currentAnswer).trim().length > 0;
@@ -241,6 +270,41 @@ export function DemographicsAssessment({ onComplete }: DemographicsAssessmentPro
                     Prefer not to say
                   </button>
                 )}
+              </div>
+            );
+          })()}
+
+          {question.type === "range" && (() => {
+            const min = question.min ?? 18;
+            const max = question.max ?? 80;
+            const [lo, hi] = parseRange();
+            const pct = (v: number) => ((v - min) / (max - min)) * 100;
+            return (
+              <div>
+                <div className="flex items-baseline gap-2 mb-5">
+                  <span className="text-foreground" style={{ fontFamily: "var(--font-display)", fontSize: "2.75rem", fontWeight: 500, lineHeight: 1 }}>
+                    {lo}–{hi}
+                  </span>
+                  <span className="text-muted-foreground" style={{ fontSize: "1rem" }}>years</span>
+                </div>
+                <div className="dual-range">
+                  <div className="track" />
+                  <div className="fill" style={{ left: `${pct(lo)}%`, width: `${pct(hi) - pct(lo)}%` }} />
+                  <input
+                    type="range" min={min} max={max} step={question.step} value={lo}
+                    onChange={(e) => setRange(Math.min(Number(e.target.value), hi), hi)}
+                    aria-label="Minimum age"
+                  />
+                  <input
+                    type="range" min={min} max={max} step={question.step} value={hi}
+                    onChange={(e) => setRange(lo, Math.max(Number(e.target.value), lo))}
+                    aria-label="Maximum age"
+                  />
+                </div>
+                <div className="flex justify-between mt-1.5 text-muted-foreground" style={{ fontSize: "0.75rem" }}>
+                  <span>{min}</span>
+                  <span>{max}+</span>
+                </div>
               </div>
             );
           })()}

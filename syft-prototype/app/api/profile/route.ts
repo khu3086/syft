@@ -40,9 +40,17 @@ interface Demographics {
   location?: string;
   gender?: string[];
   open_to?: string[];
+  age_range?: string; // "25-40"
   relationship_type?: string;
   distance?: string;
   height?: string;
+}
+
+/** Parse an "lo-hi" age-range string into [min, max] (or [null, null]). */
+function parseAgeRange(s?: string): [number | null, number | null] {
+  if (typeof s !== "string" || !s.includes("-")) return [null, null];
+  const [lo, hi] = s.split("-").map(Number);
+  return [Number.isFinite(lo) ? lo : null, Number.isFinite(hi) ? hi : null];
 }
 
 function intentFrom(rt?: string): RelationshipIntent {
@@ -106,6 +114,7 @@ export async function POST(req: Request) {
 
   const city = d.location?.trim() || "Bengaluru, Karnataka";
   const coords = geocodeCity(city); // offline gazetteer → real lat/lng for distance filtering
+  const [prefAgeMin, prefAgeMax] = parseAgeRange(d.age_range);
 
   const profile: Profile = {
     id: userId,
@@ -115,6 +124,8 @@ export async function POST(req: Request) {
     // the same onboarding answers that also feed the assessment prose above.
     gender: normalizeGenderList(d.gender),
     seeking: normalizeSeeking(d.open_to),
+    prefAgeMin: prefAgeMin ?? undefined,
+    prefAgeMax: prefAgeMax ?? undefined,
     city,
     lat: coords.lat,
     lng: coords.lng,

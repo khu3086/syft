@@ -12,6 +12,8 @@ create table if not exists public.profiles (
   photo                 text,                                      -- profile photo URL (seed/demo profiles; null for new users)
   gender                text,                                      -- 'man' | 'woman' | 'nonbinary' (matching bucket)
   seeking               text[] not null default '{}',              -- genders this person is open to meeting
+  pref_age_min          int,                                       -- preferred age range to meet (searcher-side)
+  pref_age_max          int,
   city                  text not null,
   lat                   double precision not null default 0,
   lng                   double precision not null default 0,
@@ -31,7 +33,9 @@ create table if not exists public.profiles (
 -- fresh table). Re-running this whole file is safe.
 alter table public.profiles add column if not exists gender  text;
 alter table public.profiles add column if not exists seeking text[] not null default '{}';
-alter table public.profiles add column if not exists photo   text;
+alter table public.profiles add column if not exists photo        text;
+alter table public.profiles add column if not exists pref_age_min int;
+alter table public.profiles add column if not exists pref_age_max int;
 
 -- One profile per authenticated user.
 create unique index if not exists profiles_user_id_idx

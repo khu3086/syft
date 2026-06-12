@@ -41,12 +41,16 @@ export function evaluateRules(
     searcher.seeking.includes(candidate.gender) &&
     candidate.seeking.includes(searcher.gender);
 
-  // Age range (only if the searcher specified one).
-  if (si.desiredAgeMin != null) {
-    checks.push({ name: "age >= min", pass: candidate.age >= si.desiredAgeMin });
+  // Age range: the query's stated range wins; otherwise fall back to the
+  // searcher's preferred range from onboarding. Treated as a strong soft filter
+  // (it lowers Rule Fit), not an absolute gate.
+  const ageMin = si.desiredAgeMin ?? searcher.prefAgeMin ?? null;
+  const ageMax = si.desiredAgeMax ?? searcher.prefAgeMax ?? null;
+  if (ageMin != null) {
+    checks.push({ name: "age >= min", pass: candidate.age >= ageMin });
   }
-  if (si.desiredAgeMax != null) {
-    checks.push({ name: "age <= max", pass: candidate.age <= si.desiredAgeMax });
+  if (ageMax != null) {
+    checks.push({ name: "age <= max", pass: candidate.age <= ageMax });
   }
 
   // Commuting distance (only if specified).
